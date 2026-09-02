@@ -1,0 +1,10 @@
+{
+  "name": "news-image-downloader",
+  "version": "1.0.0",
+  "description": "Automatically download high-quality images from Google Images based on a list of news titles.",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC"
+}

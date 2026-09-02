@@ -1,0 +1,53 @@
+import { StateManager } from './state-manager.js';
+import { DownloadManager } from './download-manager.js';
+import { QueueManager } from './queue-manager.js';
+import { Logger } from '../utils/logger.js';
+import { MESSAGE_TYPES } from '../core/constants.js';
+
+const stateManager = new StateManager();
+const downloadManager = new DownloadManager(stateManager);
+const queueManager = new QueueManager(stateManager, downloadManager);
+
+// Initialize state from storage
+stateManager.loadState();
+
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  Logger.info(`Background received message: ${request.action}`);
+
+  switch (request.action) {
+    case MESSAGE_TYPES.GET_STATE:
+      sendResponse(stateManager.getState());
+      break;
+
+    case MESSAGE_TYPES.START_QUEUE:
+      stateManager.initQueue(request.payload.titles);
+      queueManager.start();
+      sendResponse({ success: true });
+      break;
+
+    case MESSAGE_TYPES.PAUSE_QUEUE:
+      queueManager.pause();
+      sendResponse({ success: true });
+      break;
+
+    case MESSAGE_TYPES.RESUME_QUEUE:
+      queueManager.resume();
+      sendResponse({ success: true });
+      break;
+
+    case MESSAGE_TYPES.STOP_QUEUE:
+      queueManager.stop();
+      sendResponse({ success: true });
+      break;
+
+    case MESSAGE_TYPES.UPDATE_SETTINGS:
+      stateManager.saveSettings(request.payload);
+      sendResponse({ success: true });
+      break;
+
+    default:
+      sendResponse({ error: 'Unknown action' });
+  }
+
+  return true; // Keep channel open for async responses if needed
+});
