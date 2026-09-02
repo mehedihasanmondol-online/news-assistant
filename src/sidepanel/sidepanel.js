@@ -47,7 +47,8 @@ const el = {
 // Init
 // ===========================
 let pollingInterval = null;
-let wasCompleted = false; // Track if we just finished, to trigger success screen once
+let wasCompleted = false;      // Triggers the success screen when queue finishes
+let suppressSuccess = false;   // Blocks re-showing success screen after Start Again, until a new run begins
 
 document.addEventListener('DOMContentLoaded', async () => {
   await loadSettings();
@@ -142,6 +143,10 @@ async function handleStart() {
   const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
   const tabId = activeTab ? activeTab.id : null;
 
+  // Allow success screen for this new run
+  suppressSuccess = false;
+  wasCompleted = false;
+
   // Start the queue
   await sendMessage(MESSAGE_TYPES.START_QUEUE, { titles, tabId });
 
@@ -160,13 +165,13 @@ function renderState(state) {
 
   // ── Detect queue completion — show success screen once ──────────────────
   const isCompleted = overallStatus === QUEUE_STATUS.COMPLETED && total > 0 && done === total;
-  if (isCompleted && !wasCompleted) {
+  if (isCompleted && !wasCompleted && !suppressSuccess) {
     wasCompleted = true;
     showSuccessScreen(state);
     return; // No need to update normal UI — success screen is showing
   }
-  // If not completed, make sure success screen stays hidden
-  if (!wasCompleted) {
+  // If success screen is actively suppressed (after Start Again), keep it hidden
+  if (suppressSuccess || !wasCompleted) {
     el.successScreen.style.display = 'none';
   }
 
@@ -284,8 +289,9 @@ function showSuccessScreen(state) {
 }
 
 function resetToStart() {
-  // Reset the completion flag so polling can work normally again
+  // Suppress success screen until a brand new run is started
   wasCompleted = false;
+  suppressSuccess = true;
 
   // Hide success screen
   el.successScreen.style.display = 'none';
