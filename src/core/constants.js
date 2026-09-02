@@ -4,6 +4,7 @@ export const DEFAULT_SETTINGS = {
   minimumAspectRatio: 1.4,
   preferredAspectRatio: '16:9',
   rootFolder: 'News Images',
+  saveToDownloadsRoot: true,
   maxRetries: 2,
   delayBetweenSearchesMs: 3000
 };

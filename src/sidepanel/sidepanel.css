@@ -247,6 +247,21 @@ textarea:focus {
   white-space: nowrap;
 }
 
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+input[type="checkbox"] {
+  accent-color: var(--primary);
+}
+
+.setting-row.is-disabled {
+  opacity: 0.45;
+}
+
 .input-with-unit {
   display: flex;
   align-items: center;

@@ -7,6 +7,7 @@ A Chrome/Chromium Manifest V3 extension that takes a list of news titles and aut
 - **Original High-Quality Images**: Extracts the original image URLs instead of relying purely on thumbnails.
 - **Smart Filtering**: Configurable settings to prioritize large images, with 16:9, 4:3, 1:1, 3:4, and 9:16 aspect-ratio recommendations. Images with missing or smaller width metadata are excluded.
 - **Saved Settings**: Save download preferences independently, so they are ready for the next batch.
+- **Browser Downloads Option**: Save each news title in its own folder directly inside the browser's configured Downloads folder, or turn the option off to add a custom root folder.
 - **Background Operations**: Uses a background service worker to manage the download queue, ensuring it runs reliably even if the popup is closed.
 - **Organized Downloads**: Uses the Chrome Downloads API to save images into `Root Folder/Sanitized News Title/`.
 - **Robust Error Handling**: Skips failed images/titles gracefully without stopping the entire queue.

@@ -11,6 +11,7 @@ const el = {
   minAspectRatio: document.getElementById('minAspectRatio'),
   aspectRatio: document.getElementById('aspectRatio'),
   rootFolder: document.getElementById('rootFolder'),
+  saveToDownloadsRoot: document.getElementById('saveToDownloadsRoot'),
   searchDelay: document.getElementById('searchDelay'),
   btnSaveSettings: document.getElementById('btnSaveSettings'),
   saveStatus: document.getElementById('saveStatus'),
@@ -89,7 +90,9 @@ async function loadSettings() {
   el.minAspectRatio.value = s.minimumAspectRatio;
   el.aspectRatio.value = s.preferredAspectRatio || '16:9';
   el.rootFolder.value = s.rootFolder;
+  el.saveToDownloadsRoot.checked = s.saveToDownloadsRoot !== false;
   el.searchDelay.value = s.delayBetweenSearchesMs || 3000;
+  updateDownloadLocationUI();
 }
 
 function readSettings() {
@@ -99,6 +102,7 @@ function readSettings() {
     minimumAspectRatio: parseFloat(el.minAspectRatio.value) || 1.78,
     preferredAspectRatio: el.aspectRatio.value,
     rootFolder: el.rootFolder.value.trim() || '',
+    saveToDownloadsRoot: el.saveToDownloadsRoot.checked,
     delayBetweenSearchesMs: parseInt(el.searchDelay.value, 10) || 3000,
   };
 }
@@ -120,6 +124,7 @@ function setupListeners() {
   // Controls
   el.btnSaveSettings.addEventListener('click', saveSettings);
   el.aspectRatio.addEventListener('change', applyAspectRatioRecommendation);
+  el.saveToDownloadsRoot.addEventListener('change', updateDownloadLocationUI);
   el.btnStart.addEventListener('click', handleStart);
   el.btnPause.addEventListener('click', () => sendMessage(MESSAGE_TYPES.PAUSE_QUEUE));
   el.btnResume.addEventListener('click', () => sendMessage(MESSAGE_TYPES.RESUME_QUEUE));
@@ -127,6 +132,12 @@ function setupListeners() {
 
   // Start Again — reset to fresh state
   el.btnStartAgain.addEventListener('click', resetToStart);
+}
+
+function updateDownloadLocationUI() {
+  const isDirect = el.saveToDownloadsRoot.checked;
+  el.rootFolder.disabled = isDirect;
+  el.rootFolder.closest('.setting-row').classList.toggle('is-disabled', isDirect);
 }
 
 const RATIO_RECOMMENDATIONS = {

@@ -86,9 +86,16 @@
                 <span class="setting-hint" id="aspectRatioHint">Closest matches are downloaded first.</span>
               </div>
               <div class="setting-row">
-                <label for="rootFolder">Save folder</label>
-                <input type="text" id="rootFolder" value="News Images" style="width:100%;box-sizing:border-box;">
+                <label class="checkbox-label" for="saveToDownloadsRoot">
+                  <input type="checkbox" id="saveToDownloadsRoot" checked>
+                  Save title folders in browser Downloads
+                </label>
               </div>
+              <div class="setting-row">
+                <label for="rootFolder">Save folder</label>
+                <input type="text" id="rootFolder" value="News Images" style="width:100%;box-sizing:border-box;" aria-describedby="rootFolderHint">
+              </div>
+              <span class="setting-hint" id="rootFolderHint">Saves as Downloads/News Title/01.jpg without an extra root folder.</span>
               <div class="setting-row">
                 <label for="searchDelay">Delay between searches</label>
                 <div class="input-with-unit">

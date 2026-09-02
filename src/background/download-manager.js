@@ -24,7 +24,11 @@ export class DownloadManager {
     
     // Format: 01.jpg, 02.png
     const filename = `${index.toString().padStart(2, '0')}.${extension}`;
-    const path = `${rootFolder}/${sanitizedTitle}/${filename}`;
+    // No root prefix lets Chrome use the browser's configured Downloads
+    // location while still organizing files inside one folder per news title.
+    const path = settings.saveToDownloadsRoot !== false
+      ? `${sanitizedTitle}/${filename}`
+      : `${rootFolder}/${sanitizedTitle}/${filename}`;
 
     return new Promise((resolve) => {
       chrome.downloads.download({
