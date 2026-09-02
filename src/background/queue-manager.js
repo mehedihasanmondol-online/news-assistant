@@ -175,11 +175,15 @@ export class QueueManager {
 
           // Wait a brief moment for dynamic content to settle
           setTimeout(() => {
-            chrome.tabs.sendMessage(tabId, { action: 'EXTRACT_IMAGES' }, (response) => {
+            const extractionRequest = {
+              action: 'EXTRACT_IMAGES',
+              payload: { minimumWidth: this.stateManager.getState().settings.minimumWidth }
+            };
+            chrome.tabs.sendMessage(tabId, extractionRequest, (response) => {
               if (chrome.runtime.lastError) {
                 Logger.warn('Content script not ready, retrying in 2s...');
                 setTimeout(() => {
-                  chrome.tabs.sendMessage(tabId, { action: 'EXTRACT_IMAGES' }, (retryResponse) => {
+                  chrome.tabs.sendMessage(tabId, extractionRequest, (retryResponse) => {
                     if (chrome.runtime.lastError || !retryResponse) {
                       reject(new Error(`Content script communication failed: ${chrome.runtime.lastError?.message}`));
                     } else {

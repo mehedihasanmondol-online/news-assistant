@@ -188,15 +188,68 @@
     return candidates;
   }
 
+  // Google increasingly exposes only thumbnail dimensions in its result DOM.
+  // Loading the original URL in the page gives us its real natural dimensions
+  // without reading pixels or needing cross-origin canvas access.
+  function getImageDimensions(url) {
+    return new Promise(resolve => {
+      const image = new Image();
+      const timeout = setTimeout(() => {
+        image.onload = image.onerror = null;
+        resolve(null);
+      }, 3000);
+
+      image.onload = () => {
+        clearTimeout(timeout);
+        resolve(image.naturalWidth > 0 && image.naturalHeight > 0
+          ? { width: image.naturalWidth, height: image.naturalHeight }
+          : null);
+      };
+      image.onerror = () => {
+        clearTimeout(timeout);
+        resolve(null);
+      };
+      image.referrerPolicy = 'no-referrer-when-downgrade';
+      image.src = url;
+    });
+  }
+
+  async function verifyCandidateDimensions(candidates, minimumWidth) {
+    const verified = [];
+    // Keep this bounded so the background worker's image-search timeout is
+    // never held up by a large page full of slow hosts.
+    const queue = candidates.slice(0, 24);
+    const workerCount = Math.min(8, queue.length);
+    let nextIndex = 0;
+
+    async function worker() {
+      while (nextIndex < queue.length) {
+        const candidate = queue[nextIndex++];
+        const dimensions = await getImageDimensions(candidate.originalUrl || candidate.thumbnailUrl);
+        if (dimensions) {
+          candidate.width = dimensions.width;
+          candidate.height = dimensions.height;
+          if (dimensions.width >= minimumWidth) verified.push(candidate);
+        }
+      }
+    }
+
+    await Promise.all(Array.from({ length: workerCount }, worker));
+    return verified;
+  }
+
   // ─── Message listener ─────────────────────────────────────────────────────
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === 'EXTRACT_IMAGES') {
-      try {
-        const candidates = extractCandidates();
-        sendResponse({ success: true, candidates });
-      } catch (error) {
-        sendResponse({ success: false, error: error.message, candidates: [] });
-      }
+      (async () => {
+        try {
+          const minimumWidth = Number(request.payload?.minimumWidth) || 0;
+          const candidates = await verifyCandidateDimensions(extractCandidates(), minimumWidth);
+          sendResponse({ success: true, candidates });
+        } catch (error) {
+          sendResponse({ success: false, error: error.message, candidates: [] });
+        }
+      })();
       return true;
     }
   });
