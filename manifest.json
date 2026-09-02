@@ -5,6 +5,7 @@
   "description": "Automatically download high-quality images from Google Images based on a list of news titles.",
   "permissions": [
     "storage",
+    "clipboardRead",
     "downloads",
     "tabs",
     "activeTab",

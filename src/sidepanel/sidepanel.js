@@ -7,6 +7,7 @@ const el = {
   titles: document.getElementById('titles'),
   inputSection: document.getElementById('inputSection'),
   titleCount: document.getElementById('titleCount'),
+  btnPasteTitles: document.getElementById('btnPasteTitles'),
   imagesPerTitle: document.getElementById('imagesPerTitle'),
   minWidth: document.getElementById('minWidth'),
   minAspectRatio: document.getElementById('minAspectRatio'),
@@ -62,6 +63,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   setupListeners();
   startPolling();
+  focusTitlesInput();
 });
 
 // ===========================
@@ -115,6 +117,7 @@ function readSettings() {
 function setupListeners() {
   // Title count feedback
   el.titles.addEventListener('input', updateTitleCount);
+  el.btnPasteTitles.addEventListener('click', pasteTitlesFromClipboard);
   updateTitleCount();
 
   // Settings collapsible
@@ -170,6 +173,33 @@ async function saveSettings() {
 function updateTitleCount() {
   const count = el.titles.value.split('\n').filter(t => t.trim().length > 0).length;
   el.titleCount.textContent = `${count} title${count !== 1 ? 's' : ''}`;
+}
+
+function focusTitlesInput() {
+  // Chrome can leave the omnibox focused after opening a side panel. Retry
+  // once after the panel has painted so a following Ctrl+V reaches this field.
+  requestAnimationFrame(() => el.titles.focus({ preventScroll: true }));
+  setTimeout(() => {
+    if (document.activeElement === document.body) {
+      el.titles.focus({ preventScroll: true });
+    }
+  }, 250);
+}
+
+async function pasteTitlesFromClipboard() {
+  try {
+    const text = await navigator.clipboard.readText();
+    if (!text.trim()) {
+      showAlert('Your clipboard does not contain any titles.');
+      return;
+    }
+    el.titles.value = text;
+    updateTitleCount();
+    el.titles.focus({ preventScroll: true });
+  } catch (error) {
+    console.warn('Clipboard read error:', error);
+    showAlert('Clipboard access was blocked. Copy the titles, then click this button again.');
+  }
 }
 
 function hideInputCards() {
