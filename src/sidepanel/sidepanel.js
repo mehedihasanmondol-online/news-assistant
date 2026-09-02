@@ -5,6 +5,7 @@ import { MESSAGE_TYPES, QUEUE_STATUS, DEFAULT_SETTINGS } from '../core/constants
 // ===========================
 const el = {
   titles: document.getElementById('titles'),
+  inputSection: document.getElementById('inputSection'),
   titleCount: document.getElementById('titleCount'),
   imagesPerTitle: document.getElementById('imagesPerTitle'),
   minWidth: document.getElementById('minWidth'),
@@ -13,6 +14,7 @@ const el = {
   rootFolder: document.getElementById('rootFolder'),
   saveToDownloadsRoot: document.getElementById('saveToDownloadsRoot'),
   searchDelay: document.getElementById('searchDelay'),
+  settingsSection: document.getElementById('settingsSection'),
   btnSaveSettings: document.getElementById('btnSaveSettings'),
   saveStatus: document.getElementById('saveStatus'),
   btnStart: document.getElementById('btnStart'),
@@ -128,7 +130,10 @@ function setupListeners() {
   el.btnStart.addEventListener('click', handleStart);
   el.btnPause.addEventListener('click', () => sendMessage(MESSAGE_TYPES.PAUSE_QUEUE));
   el.btnResume.addEventListener('click', () => sendMessage(MESSAGE_TYPES.RESUME_QUEUE));
-  el.btnStop.addEventListener('click', () => sendMessage(MESSAGE_TYPES.STOP_QUEUE));
+  el.btnStop.addEventListener('click', async () => {
+    await sendMessage(MESSAGE_TYPES.STOP_QUEUE);
+    showInputCards();
+  });
 
   // Start Again — reset to fresh state
   el.btnStartAgain.addEventListener('click', resetToStart);
@@ -167,6 +172,16 @@ function updateTitleCount() {
   el.titleCount.textContent = `${count} title${count !== 1 ? 's' : ''}`;
 }
 
+function hideInputCards() {
+  el.inputSection.style.display = 'none';
+  el.settingsSection.style.display = 'none';
+}
+
+function showInputCards() {
+  el.inputSection.style.display = '';
+  el.settingsSection.style.display = '';
+}
+
 async function handleStart() {
   const titles = el.titles.value.split('\n').filter(t => t.trim().length > 0);
 
@@ -190,6 +205,7 @@ async function handleStart() {
   await sendMessage(MESSAGE_TYPES.START_QUEUE, { titles, tabId });
 
   // Show progress sections
+  hideInputCards();
   el.progressSection.style.display = '';
   el.queueSection.style.display = '';
 }
@@ -337,6 +353,7 @@ function resetToStart() {
 
   // Show input view again
   el.inputView.classList.remove('hidden');
+  showInputCards();
 
   // Clear textarea and progress areas
   el.titles.value = '';
