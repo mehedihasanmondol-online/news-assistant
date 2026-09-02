@@ -9,8 +9,11 @@ const el = {
   imagesPerTitle: document.getElementById('imagesPerTitle'),
   minWidth: document.getElementById('minWidth'),
   minAspectRatio: document.getElementById('minAspectRatio'),
+  aspectRatio: document.getElementById('aspectRatio'),
   rootFolder: document.getElementById('rootFolder'),
   searchDelay: document.getElementById('searchDelay'),
+  btnSaveSettings: document.getElementById('btnSaveSettings'),
+  saveStatus: document.getElementById('saveStatus'),
   btnStart: document.getElementById('btnStart'),
   btnPause: document.getElementById('btnPause'),
   btnResume: document.getElementById('btnResume'),
@@ -84,6 +87,7 @@ async function loadSettings() {
   el.imagesPerTitle.value = s.imagesPerTitle;
   el.minWidth.value = s.minimumWidth;
   el.minAspectRatio.value = s.minimumAspectRatio;
+  el.aspectRatio.value = s.preferredAspectRatio || '16:9';
   el.rootFolder.value = s.rootFolder;
   el.searchDelay.value = s.delayBetweenSearchesMs || 3000;
 }
@@ -92,8 +96,9 @@ function readSettings() {
   return {
     imagesPerTitle: parseInt(el.imagesPerTitle.value, 10) || 5,
     minimumWidth: parseInt(el.minWidth.value, 10) || 1200,
-    minimumAspectRatio: parseFloat(el.minAspectRatio.value) || 1.4,
-    rootFolder: el.rootFolder.value.trim() || 'News Images',
+    minimumAspectRatio: parseFloat(el.minAspectRatio.value) || 1.78,
+    preferredAspectRatio: el.aspectRatio.value,
+    rootFolder: el.rootFolder.value.trim() || '',
     delayBetweenSearchesMs: parseInt(el.searchDelay.value, 10) || 3000,
   };
 }
@@ -113,6 +118,8 @@ function setupListeners() {
   });
 
   // Controls
+  el.btnSaveSettings.addEventListener('click', saveSettings);
+  el.aspectRatio.addEventListener('change', applyAspectRatioRecommendation);
   el.btnStart.addEventListener('click', handleStart);
   el.btnPause.addEventListener('click', () => sendMessage(MESSAGE_TYPES.PAUSE_QUEUE));
   el.btnResume.addEventListener('click', () => sendMessage(MESSAGE_TYPES.RESUME_QUEUE));
@@ -120,6 +127,28 @@ function setupListeners() {
 
   // Start Again — reset to fresh state
   el.btnStartAgain.addEventListener('click', resetToStart);
+}
+
+const RATIO_RECOMMENDATIONS = {
+  '16:9': 1.4,
+  '4:3': 1.2,
+  '1:1': 0.9,
+  '3:4': 0.65,
+  '9:16': 0.5,
+};
+
+function applyAspectRatioRecommendation() {
+  el.minAspectRatio.value = RATIO_RECOMMENDATIONS[el.aspectRatio.value];
+  el.saveStatus.textContent = 'Recommendation applied — save to keep it.';
+}
+
+async function saveSettings() {
+  const settings = readSettings();
+  const result = await sendMessage(MESSAGE_TYPES.UPDATE_SETTINGS, settings);
+  el.saveStatus.textContent = result?.success ? 'Settings saved.' : 'Could not save settings.';
+  if (result?.success) {
+    setTimeout(() => { el.saveStatus.textContent = ''; }, 2500);
+  }
 }
 
 function updateTitleCount() {
@@ -136,8 +165,7 @@ async function handleStart() {
   }
 
   // Save settings first
-  const settings = readSettings();
-  await sendMessage(MESSAGE_TYPES.UPDATE_SETTINGS, settings);
+  await saveSettings();
 
   // Get the current active tab ID so the background can navigate it
   const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -269,7 +297,7 @@ function showSuccessScreen(state) {
   el.ssCompleted.textContent = stats.completed;
   el.ssFailed.textContent = stats.failed;
   el.ssImages.textContent = stats.downloadedImages;
-  el.folderPath.textContent = (settings.rootFolder || 'News Images') + '/';
+  el.folderPath.textContent = (settings.rootFolder || '') + '/';
 
   // Update badge to Done
   updateBadge(QUEUE_STATUS.COMPLETED);
@@ -349,7 +377,7 @@ function formatStatus(status, downloaded, perTitle) {
 
 function escHtml(str) {
   if (!str) return '';
-  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
 function showAlert(msg) {

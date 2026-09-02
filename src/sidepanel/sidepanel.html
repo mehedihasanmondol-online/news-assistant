@@ -74,6 +74,17 @@
                   <span class="unit">w/h</span>
                 </div>
               </div>
+              <div class="setting-row setting-row-stack">
+                <label for="aspectRatio">Recommended aspect ratio</label>
+                <select id="aspectRatio" aria-describedby="aspectRatioHint">
+                  <option value="16:9">16:9 — Widescreen</option>
+                  <option value="4:3">4:3 — Standard</option>
+                  <option value="1:1">1:1 — Square</option>
+                  <option value="3:4">3:4 — Portrait</option>
+                  <option value="9:16">9:16 — Vertical</option>
+                </select>
+                <span class="setting-hint" id="aspectRatioHint">Closest matches are downloaded first.</span>
+              </div>
               <div class="setting-row">
                 <label for="rootFolder">Save folder</label>
                 <input type="text" id="rootFolder" value="News Images" style="width:100%;box-sizing:border-box;">
@@ -86,6 +97,8 @@
                 </div>
               </div>
             </div>
+            <button id="btnSaveSettings" class="btn btn-secondary" type="button">Save settings</button>
+            <span class="save-status" id="saveStatus" aria-live="polite"></span>
           </div>
         </section>
 

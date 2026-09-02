@@ -5,7 +5,8 @@ A Chrome/Chromium Manifest V3 extension that takes a list of news titles and aut
 ## Features
 - **Bulk Processing**: Paste multiple news titles and let the extension queue and process them sequentially.
 - **Original High-Quality Images**: Extracts the original image URLs instead of relying purely on thumbnails.
-- **Smart Filtering**: Configurable settings to prioritize large, landscape images and reject icons/portraits.
+- **Smart Filtering**: Configurable settings to prioritize large images, with 16:9, 4:3, 1:1, 3:4, and 9:16 aspect-ratio recommendations.
+- **Saved Settings**: Save download preferences independently, so they are ready for the next batch.
 - **Background Operations**: Uses a background service worker to manage the download queue, ensuring it runs reliably even if the popup is closed.
 - **Organized Downloads**: Uses the Chrome Downloads API to save images into `Root Folder/Sanitized News Title/`.
 - **Robust Error Handling**: Skips failed images/titles gracefully without stopping the entire queue.

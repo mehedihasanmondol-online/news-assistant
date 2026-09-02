@@ -90,7 +90,7 @@ export class QueueManager {
 
       const filtered = filterCandidates(candidates, state.settings);
       // Sort by score descending — best images first
-      filtered.sort((a, b) => scoreImage(b) - scoreImage(a));
+      filtered.sort((a, b) => scoreImage(b, state.settings) - scoreImage(a, state.settings));
 
       item.candidates = filtered;
       Logger.info(`${item.title}: ${candidates.length} candidates found, ${filtered.length} passed filter.`);

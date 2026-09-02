@@ -1,9 +1,10 @@
 /**
  * Scores an image candidate based on its properties.
  * @param {Object} candidate - The extracted image metadata.
+ * @param {Object} settings - User settings used to prioritize the chosen format.
  * @returns {number} - The score of the image (higher is better).
  */
-export function scoreImage(candidate) {
+export function scoreImage(candidate, settings = {}) {
   let score = 0;
 
   const width = parseInt(candidate.width, 10) || 0;
@@ -26,6 +27,14 @@ export function scoreImage(candidate) {
     }
 
     if (aspectRatio >= 1.6) score += 15; // Wide landscape
+
+    // Prefer images nearest to the format selected in Settings without
+    // excluding useful alternatives when Google returns few exact matches.
+    const preferred = parseAspectRatio(settings.preferredAspectRatio);
+    if (preferred) {
+      const difference = Math.abs(aspectRatio - preferred) / preferred;
+      score += Math.max(0, Math.round(30 * (1 - difference)));
+    }
   }
 
   // File type bonuses
@@ -46,4 +55,10 @@ export function scoreImage(candidate) {
   }
 
   return score;
+}
+
+function parseAspectRatio(value) {
+  if (!value || value === 'any') return null;
+  const [width, height] = String(value).split(':').map(Number);
+  return width > 0 && height > 0 ? width / height : null;
 }
