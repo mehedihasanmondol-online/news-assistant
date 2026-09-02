@@ -31,12 +31,23 @@ const el = {
   settingsToggle: document.getElementById('settingsToggle'),
   settingsBody: document.getElementById('settingsBody'),
   settingsArrow: document.getElementById('settingsArrow'),
+  // View containers
+  inputView: document.getElementById('inputView'),
+  successScreen: document.getElementById('successScreen'),
+  // Success screen elements
+  ssTitles: document.getElementById('ssTitles'),
+  ssCompleted: document.getElementById('ssCompleted'),
+  ssFailed: document.getElementById('ssFailed'),
+  ssImages: document.getElementById('ssImages'),
+  folderPath: document.getElementById('folderPath'),
+  btnStartAgain: document.getElementById('btnStartAgain'),
 };
 
 // ===========================
 // Init
 // ===========================
 let pollingInterval = null;
+let wasCompleted = false; // Track if we just finished, to trigger success screen once
 
 document.addEventListener('DOMContentLoaded', async () => {
   await loadSettings();
@@ -105,6 +116,9 @@ function setupListeners() {
   el.btnPause.addEventListener('click', () => sendMessage(MESSAGE_TYPES.PAUSE_QUEUE));
   el.btnResume.addEventListener('click', () => sendMessage(MESSAGE_TYPES.RESUME_QUEUE));
   el.btnStop.addEventListener('click', () => sendMessage(MESSAGE_TYPES.STOP_QUEUE));
+
+  // Start Again — reset to fresh state
+  el.btnStartAgain.addEventListener('click', resetToStart);
 }
 
 function updateTitleCount() {
@@ -143,6 +157,18 @@ function renderState(state) {
   const { queue, settings, overallStatus, currentTitleIndex, stats } = state;
   const total = queue.length;
   const done = stats.completed + stats.failed;
+
+  // ── Detect queue completion — show success screen once ──────────────────
+  const isCompleted = overallStatus === QUEUE_STATUS.COMPLETED && total > 0 && done === total;
+  if (isCompleted && !wasCompleted) {
+    wasCompleted = true;
+    showSuccessScreen(state);
+    return; // No need to update normal UI — success screen is showing
+  }
+  // If not completed, make sure success screen stays hidden
+  if (!wasCompleted) {
+    el.successScreen.style.display = 'none';
+  }
 
   // Status badge
   updateBadge(overallStatus);
@@ -225,6 +251,71 @@ function updateBadge(status) {
   const info = map[status] || { text: 'Idle', cls: '' };
   el.statusBadge.textContent = info.text;
   el.statusBadge.className = `header-badge ${info.cls}`;
+}
+
+// ===========================
+// Success Screen
+// ===========================
+function showSuccessScreen(state) {
+  const { queue, stats, settings } = state;
+
+  // Populate stats
+  el.ssTitles.textContent = queue.length;
+  el.ssCompleted.textContent = stats.completed;
+  el.ssFailed.textContent = stats.failed;
+  el.ssImages.textContent = stats.downloadedImages;
+  el.folderPath.textContent = (settings.rootFolder || 'News Images') + '/';
+
+  // Update badge to Done
+  updateBadge(QUEUE_STATUS.COMPLETED);
+
+  // Hide input, progress and queue sections
+  el.inputView.classList.add('hidden');
+  el.progressSection.style.display = 'none';
+  el.queueSection.style.display = 'none';
+
+  // Force re-trigger CSS animations by removing and re-adding the element's display
+  el.successScreen.style.display = 'none';
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      el.successScreen.style.display = 'flex';
+    });
+  });
+}
+
+function resetToStart() {
+  // Reset the completion flag so polling can work normally again
+  wasCompleted = false;
+
+  // Hide success screen
+  el.successScreen.style.display = 'none';
+
+  // Show input view again
+  el.inputView.classList.remove('hidden');
+
+  // Clear textarea and progress areas
+  el.titles.value = '';
+  el.titleCount.textContent = '0 titles';
+  el.progressSection.style.display = 'none';
+  el.queueSection.style.display = 'none';
+  el.progressBarFill.style.width = '0%';
+  el.progressLabel.textContent = '0 / 0 titles';
+  el.progressPct.textContent = '0%';
+  el.statCompleted.textContent = '0';
+  el.statProcessing.textContent = '0';
+  el.statFailed.textContent = '0';
+  el.statImages.textContent = '0';
+  el.queueList.innerHTML = '';
+
+  // Reset badge
+  el.statusBadge.textContent = 'Idle';
+  el.statusBadge.className = 'header-badge';
+
+  // Buttons back to initial state
+  el.btnStart.disabled = false;
+  el.btnPause.disabled = true;
+  el.btnResume.disabled = true;
+  el.btnStop.disabled = true;
 }
 
 // ===========================

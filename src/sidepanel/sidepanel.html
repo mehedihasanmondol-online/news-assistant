@@ -26,81 +26,86 @@
     <!-- Main Content -->
     <main class="app-main">
 
-      <!-- Input Section -->
-      <section class="card" id="inputSection">
-        <div class="card-header">
-          <span class="card-icon">📝</span>
-          <h2>News Titles</h2>
-        </div>
-        <textarea
-          id="titles"
-          rows="6"
-          placeholder="Enter news titles here, one per line:&#10;&#10;Bangladesh wins cricket match&#10;New bridge opens in Dhaka&#10;Heavy rain hits Khulna"></textarea>
-        <div class="char-hint" id="titleCount">0 titles</div>
-      </section>
+      <!-- ══ INPUT VIEW (hidden after completion) ══ -->
+      <div id="inputView">
 
-      <!-- Settings Section -->
-      <section class="card" id="settingsSection">
-        <div class="card-header collapsible" id="settingsToggle">
-          <div style="display:flex;align-items:center;gap:8px;">
-            <span class="card-icon">⚙️</span>
-            <h2>Settings</h2>
+        <!-- Input Section -->
+        <section class="card" id="inputSection">
+          <div class="card-header">
+            <span class="card-icon">📝</span>
+            <h2>News Titles</h2>
           </div>
-          <span class="collapse-arrow" id="settingsArrow">▼</span>
-        </div>
-        <div class="settings-body" id="settingsBody">
-          <div class="settings-grid">
-            <div class="setting-row">
-              <label for="imagesPerTitle">Images per title</label>
-              <div class="input-with-unit">
-                <input type="number" id="imagesPerTitle" min="1" max="50" value="5">
-                <span class="unit">images</span>
-              </div>
-            </div>
-            <div class="setting-row">
-              <label for="minWidth">Minimum width</label>
-              <div class="input-with-unit">
-                <input type="number" id="minWidth" min="100" max="8000" value="1200">
-                <span class="unit">px</span>
-              </div>
-            </div>
-            <div class="setting-row">
-              <label for="minAspectRatio">Min aspect ratio</label>
-              <div class="input-with-unit">
-                <input type="number" id="minAspectRatio" step="0.1" min="0.5" max="5" value="1.4">
-                <span class="unit">w/h</span>
-              </div>
-            </div>
-            <div class="setting-row">
-              <label for="rootFolder">Save folder</label>
-              <input type="text" id="rootFolder" value="News Images" style="width:100%;box-sizing:border-box;">
-            </div>
-            <div class="setting-row">
-              <label for="searchDelay">Delay between searches</label>
-              <div class="input-with-unit">
-                <input type="number" id="searchDelay" min="1000" max="10000" step="500" value="3000">
-                <span class="unit">ms</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
+          <textarea
+            id="titles"
+            rows="6"
+            placeholder="Enter news titles here, one per line:&#10;&#10;Bangladesh wins cricket match&#10;New bridge opens in Dhaka&#10;Heavy rain hits Khulna"></textarea>
+          <div class="char-hint" id="titleCount">0 titles</div>
+        </section>
 
-      <!-- Controls Section -->
-      <section class="controls-section">
-        <button id="btnStart" class="btn btn-primary">
-          <span class="btn-icon">▶</span> Start
-        </button>
-        <button id="btnPause" class="btn btn-warning" disabled>
-          <span class="btn-icon">⏸</span> Pause
-        </button>
-        <button id="btnResume" class="btn btn-success" disabled>
-          <span class="btn-icon">▶▶</span> Resume
-        </button>
-        <button id="btnStop" class="btn btn-danger" disabled>
-          <span class="btn-icon">■</span> Stop
-        </button>
-      </section>
+        <!-- Settings Section -->
+        <section class="card" id="settingsSection">
+          <div class="card-header collapsible" id="settingsToggle">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span class="card-icon">⚙️</span>
+              <h2>Settings</h2>
+            </div>
+            <span class="collapse-arrow" id="settingsArrow">▼</span>
+          </div>
+          <div class="settings-body" id="settingsBody">
+            <div class="settings-grid">
+              <div class="setting-row">
+                <label for="imagesPerTitle">Images per title</label>
+                <div class="input-with-unit">
+                  <input type="number" id="imagesPerTitle" min="1" max="50" value="5">
+                  <span class="unit">images</span>
+                </div>
+              </div>
+              <div class="setting-row">
+                <label for="minWidth">Minimum width</label>
+                <div class="input-with-unit">
+                  <input type="number" id="minWidth" min="100" max="8000" value="1200">
+                  <span class="unit">px</span>
+                </div>
+              </div>
+              <div class="setting-row">
+                <label for="minAspectRatio">Min aspect ratio</label>
+                <div class="input-with-unit">
+                  <input type="number" id="minAspectRatio" step="0.1" min="0.5" max="5" value="1.4">
+                  <span class="unit">w/h</span>
+                </div>
+              </div>
+              <div class="setting-row">
+                <label for="rootFolder">Save folder</label>
+                <input type="text" id="rootFolder" value="News Images" style="width:100%;box-sizing:border-box;">
+              </div>
+              <div class="setting-row">
+                <label for="searchDelay">Delay between searches</label>
+                <div class="input-with-unit">
+                  <input type="number" id="searchDelay" min="1000" max="10000" step="500" value="3000">
+                  <span class="unit">ms</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Controls Section -->
+        <section class="controls-section">
+          <button id="btnStart" class="btn btn-primary">
+            <span class="btn-icon">▶</span> Start
+          </button>
+          <button id="btnPause" class="btn btn-warning" disabled>
+            <span class="btn-icon">⏸</span> Pause
+          </button>
+          <button id="btnResume" class="btn btn-success" disabled>
+            <span class="btn-icon">▶▶</span> Resume
+          </button>
+          <button id="btnStop" class="btn btn-danger" disabled>
+            <span class="btn-icon">■</span> Stop
+          </button>
+        </section>
+
+      </div><!-- /#inputView -->
 
       <!-- Progress Section -->
       <section class="card progress-card" id="progressSection" style="display:none;">
@@ -156,6 +161,54 @@
         <div class="queue-list" id="queueList">
           <!-- Injected dynamically -->
         </div>
+      </section>
+
+      <!-- ══ SUCCESS SCREEN (shown after completion) ══ -->
+      <section class="success-screen" id="successScreen" style="display:none;">
+        <!-- Animated checkmark -->
+        <div class="success-icon-wrap">
+          <svg class="success-ring" viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg">
+            <circle class="ring-bg" cx="40" cy="40" r="36"/>
+            <circle class="ring-fill" cx="40" cy="40" r="36"/>
+          </svg>
+          <svg class="success-check" viewBox="0 0 52 52" xmlns="http://www.w3.org/2000/svg">
+            <polyline class="check-mark" points="14,27 24,37 38,18"/>
+          </svg>
+        </div>
+
+        <h2 class="success-title">Download Complete!</h2>
+        <p class="success-sub">All news images have been saved.</p>
+
+        <!-- Summary stats -->
+        <div class="success-stats">
+          <div class="sstat">
+            <div class="sstat-val" id="ssTitles">0</div>
+            <div class="sstat-lbl">Titles</div>
+          </div>
+          <div class="sstat sstat-green">
+            <div class="sstat-val" id="ssCompleted">0</div>
+            <div class="sstat-lbl">Completed</div>
+          </div>
+          <div class="sstat sstat-red">
+            <div class="sstat-val" id="ssFailed">0</div>
+            <div class="sstat-lbl">Failed</div>
+          </div>
+          <div class="sstat sstat-blue">
+            <div class="sstat-val" id="ssImages">0</div>
+            <div class="sstat-lbl">Images</div>
+          </div>
+        </div>
+
+        <!-- Folder hint -->
+        <div class="success-folder" id="successFolder">
+          <span class="folder-icon">📁</span>
+          <span id="folderPath">News Images/</span>
+        </div>
+
+        <!-- Start Again button -->
+        <button class="btn btn-start-again" id="btnStartAgain">
+          <span>↩</span> Start Again
+        </button>
       </section>
 
     </main>

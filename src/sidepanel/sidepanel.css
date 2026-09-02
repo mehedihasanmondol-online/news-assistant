@@ -553,3 +553,207 @@ input:focus {
   flex-shrink: 0;
   font-variant-numeric: tabular-nums;
 }
+
+/* ===== View Transitions ===== */
+#inputView {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  transition: opacity 0.35s ease;
+}
+
+#inputView.hidden {
+  display: none;
+}
+
+/* ===== Success Screen ===== */
+.success-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 28px 20px 32px;
+  animation: fadeSlideUp 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes fadeSlideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Animated checkmark icon ── */
+.success-icon-wrap {
+  position: relative;
+  width: 80px;
+  height: 80px;
+  margin-bottom: 20px;
+}
+
+.success-ring {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.ring-bg {
+  fill: none;
+  stroke: rgba(16, 185, 129, 0.15);
+  stroke-width: 5;
+}
+
+.ring-fill {
+  fill: none;
+  stroke: var(--success);
+  stroke-width: 5;
+  stroke-linecap: round;
+  stroke-dasharray: 226;
+  stroke-dashoffset: 226;
+  animation: drawRing 0.7s 0.15s cubic-bezier(0.65, 0, 0.45, 1) forwards;
+  filter: drop-shadow(0 0 6px rgba(16, 185, 129, 0.5));
+}
+
+@keyframes drawRing {
+  to { stroke-dashoffset: 0; }
+}
+
+.success-check {
+  position: absolute;
+  inset: 14px;
+  width: calc(100% - 28px);
+  height: calc(100% - 28px);
+}
+
+.check-mark {
+  fill: none;
+  stroke: var(--success);
+  stroke-width: 4.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 50;
+  stroke-dashoffset: 50;
+  animation: drawCheck 0.4s 0.75s ease forwards;
+}
+
+@keyframes drawCheck {
+  to { stroke-dashoffset: 0; }
+}
+
+/* ── Title & subtitle ── */
+.success-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 6px;
+  letter-spacing: -0.4px;
+  text-align: center;
+}
+
+.success-sub {
+  font-size: 13px;
+  color: var(--text-muted);
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+/* ── Summary stats grid ── */
+.success-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  width: 100%;
+  margin-bottom: 20px;
+}
+
+.sstat {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px 6px;
+  text-align: center;
+  animation: popIn 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.sstat:nth-child(1) { animation-delay: 0.85s; }
+.sstat:nth-child(2) { animation-delay: 0.95s; }
+.sstat:nth-child(3) { animation-delay: 1.05s; }
+.sstat:nth-child(4) { animation-delay: 1.15s; }
+
+@keyframes popIn {
+  from { opacity: 0; transform: scale(0.8); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+.sstat-green { border-color: rgba(16, 185, 129, 0.35); }
+.sstat-red   { border-color: rgba(239, 68, 68, 0.35); }
+.sstat-blue  { border-color: rgba(79, 70, 229, 0.35); }
+
+.sstat-val {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1;
+  margin-bottom: 4px;
+}
+
+.sstat-green .sstat-val { color: var(--success); }
+.sstat-red   .sstat-val { color: var(--danger); }
+.sstat-blue  .sstat-val { color: var(--primary); }
+
+.sstat-lbl {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+/* ── Folder pill ── */
+.success-folder {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 7px 16px;
+  font-size: 12px;
+  color: var(--text-subtle);
+  margin-bottom: 24px;
+  animation: fadeIn 0.4s 1.3s ease both;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.folder-icon { font-size: 15px; }
+
+/* ── Start Again button ── */
+.btn-start-again {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 13px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(135deg, var(--primary), #7c3aed);
+  color: #fff;
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  letter-spacing: 0.2px;
+  box-shadow: 0 6px 24px rgba(79, 70, 229, 0.4);
+  transition: all 0.25s ease;
+  animation: fadeIn 0.4s 1.4s ease both;
+}
+
+.btn-start-again:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 30px rgba(79, 70, 229, 0.55);
+}
+
+.btn-start-again:active {
+  transform: translateY(0);
+}
