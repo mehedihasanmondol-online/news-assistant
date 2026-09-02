@@ -8,8 +8,11 @@ const stateManager = new StateManager();
 const downloadManager = new DownloadManager(stateManager);
 const queueManager = new QueueManager(stateManager, downloadManager);
 
-// Initialize state from storage
+// Initialize state from storage on startup
 stateManager.loadState();
+
+// Open side panel when extension action button is clicked
+chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(console.error);
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   Logger.info(`Background received message: ${request.action}`);
@@ -21,7 +24,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
     case MESSAGE_TYPES.START_QUEUE:
       stateManager.initQueue(request.payload.titles);
-      queueManager.start();
+      queueManager.start(request.payload.tabId);
       sendResponse({ success: true });
       break;
 
@@ -49,5 +52,5 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       sendResponse({ error: 'Unknown action' });
   }
 
-  return true; // Keep channel open for async responses if needed
+  return true; // Keep channel open for async responses
 });

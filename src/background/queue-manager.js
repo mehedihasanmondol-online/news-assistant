@@ -7,14 +7,19 @@ export class QueueManager {
   constructor(stateManager, downloadManager) {
     this.stateManager = stateManager;
     this.downloadManager = downloadManager;
-    this.activeTabId = null;
+    this.activeTabId = null;    // The current (foreground) tab to use
     this.isPaused = false;
     this.isStopped = false;
   }
 
-  async start() {
+  /**
+   * Starts queue processing.
+   * @param {number} tabId - The active tab ID passed from the sidepanel.
+   */
+  async start(tabId) {
     this.isPaused = false;
     this.isStopped = false;
+    this.activeTabId = tabId || null;
     this.stateManager.state.overallStatus = QUEUE_STATUS.SEARCHING;
     await this.processQueue();
   }
@@ -33,20 +38,20 @@ export class QueueManager {
   stop() {
     this.isStopped = true;
     this.stateManager.state.overallStatus = QUEUE_STATUS.COMPLETED;
-    if (this.activeTabId) {
-      chrome.tabs.remove(this.activeTabId);
-      this.activeTabId = null;
-    }
+    this.activeTabId = null;
   }
 
   async processQueue() {
     const state = this.stateManager.getState();
     const queue = state.queue;
+    const startIdx = state.currentTitleIndex === -1 ? 0 : state.currentTitleIndex;
 
-    for (let i = state.currentTitleIndex === -1 ? 0 : state.currentTitleIndex; i < queue.length; i++) {
+    for (let i = startIdx; i < queue.length; i++) {
       if (this.isStopped) break;
+
+      // Pause loop — wait until resumed or stopped
       while (this.isPaused) {
-        await new Promise(r => setTimeout(r, 1000)); // wait while paused
+        await this._sleep(1000);
         if (this.isStopped) return;
       }
 
@@ -58,17 +63,16 @@ export class QueueManager {
       }
 
       await this.processItem(i, item);
-      
-      // Delay between searches
-      await new Promise(r => setTimeout(r, state.settings.delayBetweenSearchesMs));
+
+      // Polite delay between searches
+      if (i < queue.length - 1 && !this.isStopped) {
+        const delay = state.settings.delayBetweenSearchesMs || 3000;
+        await this._sleep(delay);
+      }
     }
 
     if (!this.isStopped && !this.isPaused) {
       state.overallStatus = QUEUE_STATUS.COMPLETED;
-      if (this.activeTabId) {
-        chrome.tabs.remove(this.activeTabId);
-        this.activeTabId = null;
-      }
     }
   }
 
@@ -79,95 +83,134 @@ export class QueueManager {
 
     try {
       const candidates = await this.searchGoogleImages(item.title);
+
+      if (this.isStopped) return;
+
       this.stateManager.updateItemStatus(index, QUEUE_STATUS.EXTRACTING);
-      
+
       const filtered = filterCandidates(candidates, state.settings);
-      // Sort by score descending
+      // Sort by score descending — best images first
       filtered.sort((a, b) => scoreImage(b) - scoreImage(a));
-      
+
       item.candidates = filtered;
-      
+      Logger.info(`${item.title}: ${candidates.length} candidates found, ${filtered.length} passed filter.`);
+
       this.stateManager.updateItemStatus(index, QUEUE_STATUS.DOWNLOADING);
-      
+
       let downloadedCount = 0;
       let candidateIndex = 0;
-      
+
       while (downloadedCount < state.settings.imagesPerTitle && candidateIndex < filtered.length) {
         if (this.isStopped) return;
+
         while (this.isPaused) {
-          await new Promise(r => setTimeout(r, 1000));
+          await this._sleep(1000);
+          if (this.isStopped) return;
         }
 
         const candidate = filtered[candidateIndex];
         const success = await this.downloadManager.downloadImage(candidate, item.title, downloadedCount + 1);
-        
+
         if (success) {
           downloadedCount++;
           state.stats.downloadedImages++;
           item.downloaded = downloadedCount;
+          Logger.info(`Downloaded image ${downloadedCount}/${state.settings.imagesPerTitle} for "${item.title}"`);
         } else {
-          item.failed++;
+          item.failed = (item.failed || 0) + 1;
           state.stats.skippedImages++;
+          Logger.warn(`Skipped a candidate for "${item.title}".`);
         }
-        
+
         candidateIndex++;
-        // Small delay between downloads
-        await new Promise(r => setTimeout(r, 500));
+        await this._sleep(500); // Small delay between downloads
       }
 
       if (downloadedCount > 0) {
         this.stateManager.updateItemStatus(index, QUEUE_STATUS.COMPLETED);
         state.stats.completed++;
       } else {
-         this.stateManager.updateItemStatus(index, QUEUE_STATUS.FAILED);
-         state.stats.failed++;
+        this.stateManager.updateItemStatus(index, QUEUE_STATUS.FAILED);
+        state.stats.failed++;
+        item.error = 'No valid images could be downloaded.';
       }
 
     } catch (error) {
-      Logger.error(`Error processing item ${item.title}:`, error);
+      Logger.error(`Error processing "${item.title}":`, error);
       this.stateManager.updateItemStatus(index, QUEUE_STATUS.FAILED);
       state.stats.failed++;
+      item.error = error.message;
     }
   }
 
+  /**
+   * Navigates the active (foreground) tab to Google Images and retrieves candidates.
+   * The user can watch this happen live in their browser.
+   */
   async searchGoogleImages(title) {
-    return new Promise((resolve, reject) => {
-      const url = `https://www.google.com/search?tbm=isch&q=${encodeURIComponent(title)}`;
-      
-      const onUpdate = (tabId, info) => {
-         if (tabId === this.activeTabId && info.status === 'complete') {
-            chrome.tabs.onUpdated.removeListener(onUpdate);
-            // Execute content script if not already injected by manifest
-            chrome.tabs.sendMessage(this.activeTabId, { action: 'EXTRACT_IMAGES' }, (response) => {
-                if (chrome.runtime.lastError) {
-                   // Content script might not be ready, wait a bit and retry
-                   setTimeout(() => {
-                      chrome.tabs.sendMessage(this.activeTabId, { action: 'EXTRACT_IMAGES' }, (retryResponse) => {
-                         if (chrome.runtime.lastError || !retryResponse) {
-                            reject(new Error("Failed to communicate with content script"));
-                         } else {
-                            resolve(retryResponse.candidates || []);
-                         }
-                      });
-                   }, 2000);
-                } else if (response) {
-                   resolve(response.candidates || []);
-                } else {
-                   resolve([]);
-                }
-            });
-         }
-      };
+    const url = `https://www.google.com/search?tbm=isch&q=${encodeURIComponent(title)}&hl=en`;
 
-      if (!this.activeTabId) {
-        chrome.tabs.create({ url, active: false }, (tab) => {
-          this.activeTabId = tab.id;
-          chrome.tabs.onUpdated.addListener(onUpdate);
-        });
-      } else {
-        chrome.tabs.onUpdated.addListener(onUpdate);
-        chrome.tabs.update(this.activeTabId, { url });
+    return new Promise(async (resolve, reject) => {
+      try {
+        let tabId = this.activeTabId;
+
+        // If we don't have a stored tab, get the current active tab
+        if (!tabId) {
+          const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+          if (!activeTab) {
+            return reject(new Error('No active tab found.'));
+          }
+          tabId = activeTab.id;
+          this.activeTabId = tabId;
+        }
+
+        // Navigate the active tab to Google Images
+        await chrome.tabs.update(tabId, { url });
+
+        const onUpdated = (updatedTabId, info) => {
+          if (updatedTabId !== tabId) return;
+          if (info.status !== 'complete') return;
+
+          chrome.tabs.onUpdated.removeListener(onUpdated);
+
+          // Wait a brief moment for dynamic content to settle
+          setTimeout(() => {
+            chrome.tabs.sendMessage(tabId, { action: 'EXTRACT_IMAGES' }, (response) => {
+              if (chrome.runtime.lastError) {
+                Logger.warn('Content script not ready, retrying in 2s...');
+                setTimeout(() => {
+                  chrome.tabs.sendMessage(tabId, { action: 'EXTRACT_IMAGES' }, (retryResponse) => {
+                    if (chrome.runtime.lastError || !retryResponse) {
+                      reject(new Error(`Content script communication failed: ${chrome.runtime.lastError?.message}`));
+                    } else {
+                      resolve(retryResponse.candidates || []);
+                    }
+                  });
+                }, 2000);
+              } else if (response && response.success) {
+                resolve(response.candidates || []);
+              } else {
+                resolve([]);
+              }
+            });
+          }, 1500);
+        };
+
+        chrome.tabs.onUpdated.addListener(onUpdated);
+
+        // Safety timeout — reject after 30s to avoid hanging
+        setTimeout(() => {
+          chrome.tabs.onUpdated.removeListener(onUpdated);
+          reject(new Error(`Timeout waiting for Google Images to load for "${title}"`));
+        }, 30000);
+
+      } catch (err) {
+        reject(err);
       }
     });
+  }
+
+  _sleep(ms) {
+    return new Promise(r => setTimeout(r, ms));
   }
 }
