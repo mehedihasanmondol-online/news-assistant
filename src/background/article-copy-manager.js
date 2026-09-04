@@ -5,11 +5,12 @@ const WAIT_AFTER_LOAD_MS = 700;
 /** A queue kept separate from the image-download workflow. */
 export class ArticleCopyManager {
   constructor() {
+    this.runId = 0;
     this.reset();
   }
 
   reset() {
-    this.state = { status: 'idle', queue: [], currentIndex: -1, copiedText: '', error: '' };
+    this.state = { runId: this.runId, status: 'idle', queue: [], currentIndex: -1, copiedText: '', error: '' };
     this.stopped = false;
   }
 
@@ -19,6 +20,7 @@ export class ArticleCopyManager {
 
   async start(links, tabId) {
     if (!tabId) throw new Error('No browser tab is available for opening the links.');
+    this.runId += 1;
     this.reset();
     this.tabId = tabId;
     this.state.queue = links.map((url) => ({ url, status: 'pending', title: '', content: '', words: 0, error: '' }));

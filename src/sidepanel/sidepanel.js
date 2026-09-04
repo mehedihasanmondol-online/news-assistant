@@ -84,6 +84,7 @@ const articleResultScrollTops = new Map();
 let articleSuccessDismissed = false;
 let articleCopyStarting = false;
 let articleCopyWasRunning = false;
+let activeArticleRunId = null;
 
 document.addEventListener('DOMContentLoaded', async () => {
   await loadSettings();
@@ -505,6 +506,7 @@ async function startArticleCopy() {
     // completed queue being rendered during the click).
     articleCopyStarting = false;
     articleCopyWasRunning = true;
+    activeArticleRunId = result.runId;
     el.articleSuccessScreen.hidden = true;
     el.articleInputCard.hidden = true;
     el.articleControls.classList.add('is-copying');
@@ -517,6 +519,9 @@ async function refreshArticleCopyState() {
 }
 
 function renderArticleCopyState(state) {
+  // A GET_STATE response can arrive after START_ARTICLE_COPY. Ignore that
+  // stale completed batch rather than showing its success screen mid-run.
+  if (activeArticleRunId !== null && state.runId !== activeArticleRunId) return;
   const queue = state.queue || [];
   const active = state.currentIndex >= 0 ? queue[state.currentIndex] : null;
   const completed = queue.filter((item) => item.status === 'copied' || item.status === 'failed').length;
@@ -557,8 +562,13 @@ function renderArticleCopyState(state) {
     el.articleInputCard.hidden = false;
     el.articleControls.hidden = false;
     el.articleControls.classList.remove('is-copying');
-    el.articleProgressBar.closest('.article-progress-card').hidden = false;
-    el.articleQueueList.closest('.article-queue-card').hidden = false;
+    // Show progress/queue cards only when there's run data from the current
+    // session. After "Copy more articles" (articleSuccessDismissed=true and
+    // articleCopyWasRunning=false), hide them so the UI starts fresh.
+    const isFresh = articleSuccessDismissed || !articleCopyWasRunning;
+    const hasRunData = queue.length > 0 && !isFresh;
+    el.articleProgressBar.closest('.article-progress-card').hidden = !hasRunData;
+    el.articleQueueList.closest('.article-queue-card').hidden = !hasRunData;
   }
   el.articleQueueList.querySelectorAll('.article-result').forEach((card) => {
     const textBox = card.querySelector('.article-result-text');
@@ -652,6 +662,7 @@ function resetArticleCopy() {
   articleSuccessDismissed = true;
   articleCopyStarting = false;
   articleCopyWasRunning = false;
+  activeArticleRunId = null;
   el.articleSuccessScreen.hidden = true;
   el.articleInputCard.hidden = false;
   el.articleControls.hidden = false;
