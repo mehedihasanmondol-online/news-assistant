@@ -12,7 +12,8 @@
     "sidePanel"
   ],
   "host_permissions": [
-    "https://*.google.com/*"
+    "https://*.google.com/*",
+    "<all_urls>"
   ],
   "background": {
     "service_worker": "src/background/service-worker.js",
@@ -42,6 +43,11 @@
       "js": [
         "src/content/google-images-parser.js"
       ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["<all_urls>"],
+      "js": ["src/content/article-extractor.js"],
       "run_at": "document_idle"
     }
   ]

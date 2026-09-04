@@ -48,6 +48,29 @@ const el = {
   ssImages: document.getElementById('ssImages'),
   folderPath: document.getElementById('folderPath'),
   btnStartAgain: document.getElementById('btnStartAgain'),
+  imageTool: document.getElementById('imageTool'),
+  articleTool: document.getElementById('articleTool'),
+  tabs: document.querySelectorAll('.tool-tab'),
+  articleLinks: document.getElementById('articleLinks'),
+  articleLinkCount: document.getElementById('articleLinkCount'),
+  btnPasteArticleLinks: document.getElementById('btnPasteArticleLinks'),
+  btnStartArticleCopy: document.getElementById('btnStartArticleCopy'),
+  btnStopArticleCopy: document.getElementById('btnStopArticleCopy'),
+  btnCopyResults: document.getElementById('btnCopyResults'),
+  articleStatus: document.getElementById('articleStatus'),
+  articleProgress: document.getElementById('articleProgress'),
+  articleProgressBar: document.getElementById('articleProgressBar'),
+  articleCurrentUrl: document.getElementById('articleCurrentUrl'),
+  articleQueueList: document.getElementById('articleQueueList'),
+  articleInputCard: document.getElementById('articleInputCard'),
+  articleControls: document.getElementById('articleControls'),
+  articleSuccessScreen: document.getElementById('articleSuccessScreen'),
+  articleSuccessSummary: document.getElementById('articleSuccessSummary'),
+  articleSuccessCopied: document.getElementById('articleSuccessCopied'),
+  articleSuccessFailed: document.getElementById('articleSuccessFailed'),
+  articleSuccessWords: document.getElementById('articleSuccessWords'),
+  btnCopySuccessResults: document.getElementById('btnCopySuccessResults'),
+  btnArticleStartAgain: document.getElementById('btnArticleStartAgain'),
 };
 
 // ===========================
@@ -56,6 +79,11 @@ const el = {
 let pollingInterval = null;
 let wasCompleted = false;      // Triggers the success screen when queue finishes
 let suppressSuccess = false;   // Blocks re-showing success screen after Start Again, until a new run begins
+const expandedArticleIndexes = new Set();
+const articleResultScrollTops = new Map();
+let articleSuccessDismissed = false;
+let articleCopyStarting = false;
+let articleCopyWasRunning = false;
 
 document.addEventListener('DOMContentLoaded', async () => {
   await loadSettings();
@@ -64,6 +92,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   setupListeners();
   startPolling();
   focusTitlesInput();
+  refreshArticleCopyState();
 });
 
 // ===========================
@@ -71,7 +100,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 // ===========================
 function startPolling() {
   if (pollingInterval) clearInterval(pollingInterval);
-  pollingInterval = setInterval(refreshState, 1000);
+  pollingInterval = setInterval(() => {
+    refreshState();
+    refreshArticleCopyState();
+  }, 1000);
 }
 
 async function refreshState() {
@@ -115,6 +147,8 @@ function readSettings() {
 // Event Listeners
 // ===========================
 function setupListeners() {
+  el.tabs.forEach((tab) => tab.addEventListener('click', () => switchTool(tab.dataset.tool)));
+
   // Title count feedback
   el.titles.addEventListener('input', updateTitleCount);
   el.btnPasteTitles.addEventListener('click', pasteTitlesFromClipboard);
@@ -140,6 +174,21 @@ function setupListeners() {
 
   // Start Again — reset to fresh state
   el.btnStartAgain.addEventListener('click', resetToStart);
+
+  el.articleLinks.addEventListener('input', updateArticleLinkCount);
+  el.btnPasteArticleLinks.addEventListener('click', pasteArticleLinksFromClipboard);
+  el.btnStartArticleCopy.addEventListener('click', startArticleCopy);
+  el.btnStopArticleCopy.addEventListener('click', () => sendMessage(MESSAGE_TYPES.STOP_ARTICLE_COPY));
+  el.btnCopyResults.addEventListener('click', copyArticleResults);
+  el.articleQueueList.addEventListener('click', handleArticleResultClick);
+  el.articleQueueList.addEventListener('scroll', (event) => {
+    const textBox = event.target.closest?.('.article-result-text');
+    const card = textBox?.closest('.article-result');
+    if (card) articleResultScrollTops.set(Number(card.dataset.resultIndex), textBox.scrollTop);
+  }, true);
+  el.btnCopySuccessResults.addEventListener('click', copyArticleResults);
+  el.btnArticleStartAgain.addEventListener('click', resetArticleCopy);
+  updateArticleLinkCount();
 }
 
 function updateDownloadLocationUI() {
@@ -408,6 +457,218 @@ function resetToStart() {
   el.btnPause.disabled = true;
   el.btnResume.disabled = true;
   el.btnStop.disabled = true;
+}
+
+// ===========================
+// Article copy tool (independent from the image queue)
+// ===========================
+function switchTool(tool) {
+  const isArticles = tool === 'articles';
+  el.imageTool.hidden = isArticles;
+  el.articleTool.hidden = !isArticles;
+  el.tabs.forEach((tab) => tab.classList.toggle('is-active', tab.dataset.tool === tool));
+  if (isArticles) el.articleLinks.focus({ preventScroll: true });
+}
+
+function updateArticleLinkCount() {
+  const count = el.articleLinks.value.split('\n').map((value) => value.trim()).filter(Boolean).length;
+  el.articleLinkCount.textContent = `${count} link${count === 1 ? '' : 's'}`;
+}
+
+async function pasteArticleLinksFromClipboard() {
+  try {
+    const text = await navigator.clipboard.readText();
+    if (!text.trim()) return showArticleNotice('Your clipboard does not contain any links.');
+    el.articleLinks.value = text;
+    updateArticleLinkCount();
+  } catch {
+    showArticleNotice('Clipboard access was blocked. Copy the links, then try again.');
+  }
+}
+
+async function startArticleCopy() {
+  const rawLinks = el.articleLinks.value.split('\n').map((value) => value.trim()).filter(Boolean);
+  const links = rawLinks.filter((value) => {
+    try { return ['http:', 'https:'].includes(new URL(value).protocol); } catch { return false; }
+  });
+  if (!links.length) return showArticleNotice('Enter at least one valid http or https link.');
+  if (links.length !== rawLinks.length) return showArticleNotice('Remove invalid links before starting.');
+
+  const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  const result = await sendMessage(MESSAGE_TYPES.START_ARTICLE_COPY, { links, tabId: activeTab?.id });
+  if (!result?.success) showArticleNotice(result?.error || 'Could not start copying.');
+  else {
+    expandedArticleIndexes.clear();
+    articleSuccessDismissed = false;
+    // The background worker changes its state to "copying" before replying
+    // to START_ARTICLE_COPY, so this identifies a real new run (not an old
+    // completed queue being rendered during the click).
+    articleCopyStarting = false;
+    articleCopyWasRunning = true;
+    el.articleSuccessScreen.hidden = true;
+    el.articleInputCard.hidden = true;
+    el.articleControls.classList.add('is-copying');
+  }
+}
+
+async function refreshArticleCopyState() {
+  const state = await sendMessage(MESSAGE_TYPES.GET_ARTICLE_COPY_STATE);
+  if (state) renderArticleCopyState(state);
+}
+
+function renderArticleCopyState(state) {
+  const queue = state.queue || [];
+  const active = state.currentIndex >= 0 ? queue[state.currentIndex] : null;
+  const completed = queue.filter((item) => item.status === 'copied' || item.status === 'failed').length;
+  const isCopying = state.status === 'copying';
+  if (isCopying) {
+    articleCopyStarting = false;
+    articleCopyWasRunning = true;
+  }
+  // Do not show a previous batch's completion screen while a new run is
+  // waiting for the background worker to transition into "copying".
+  const isCompleted = state.status === 'completed' && !articleSuccessDismissed && !articleCopyStarting && articleCopyWasRunning;
+  const copied = queue.filter((item) => item.status === 'copied');
+  const failed = queue.filter((item) => item.status === 'failed');
+  el.articleStatus.textContent = isCopying ? (active?.status === 'loading' ? 'Opening page…' : 'Finding article…') : articleStatusText(state.status, queue);
+  el.articleProgress.textContent = `${completed} / ${queue.length}`;
+  el.articleProgressBar.style.width = `${queue.length ? Math.round((completed / queue.length) * 100) : 0}%`;
+  el.articleCurrentUrl.textContent = active?.url || (queue.length ? 'Copying is finished. You can copy all extracted text now.' : 'The source page will scroll to the highlighted article area while it is being copied.');
+  el.btnStartArticleCopy.disabled = isCopying;
+  el.btnStopArticleCopy.disabled = !isCopying;
+  el.btnCopyResults.disabled = !state.copiedText;
+  el.articleSuccessScreen.hidden = !isCompleted;
+  if (isCompleted) {
+    el.articleInputCard.hidden = true;
+    el.articleControls.hidden = true;
+    el.articleProgressBar.closest('.article-progress-card').hidden = true;
+    el.articleQueueList.closest('.article-queue-card').hidden = true;
+    el.articleSuccessCopied.textContent = copied.length;
+    el.articleSuccessFailed.textContent = failed.length;
+    el.articleSuccessWords.textContent = copied.reduce((sum, item) => sum + (item.words || 0), 0);
+    el.articleSuccessSummary.textContent = `${copied.length} article${copied.length === 1 ? '' : 's'} ready. Copy everything at once, or start another batch.`;
+  } else if (isCopying) {
+    el.articleInputCard.hidden = true;
+    el.articleControls.hidden = false;
+    el.articleControls.classList.add('is-copying');
+    el.articleProgressBar.closest('.article-progress-card').hidden = false;
+    el.articleQueueList.closest('.article-queue-card').hidden = false;
+  } else {
+    el.articleInputCard.hidden = false;
+    el.articleControls.hidden = false;
+    el.articleControls.classList.remove('is-copying');
+    el.articleProgressBar.closest('.article-progress-card').hidden = false;
+    el.articleQueueList.closest('.article-queue-card').hidden = false;
+  }
+  el.articleQueueList.querySelectorAll('.article-result').forEach((card) => {
+    const textBox = card.querySelector('.article-result-text');
+    if (textBox) articleResultScrollTops.set(Number(card.dataset.resultIndex), textBox.scrollTop);
+  });
+  el.articleQueueList.innerHTML = queue.map((item, index) => {
+    const cls = index === state.currentIndex ? 'is-active' : `is-${item.status}`;
+    const label = item.title || item.url;
+    const meta = item.status === 'copied' ? `${item.words} words copied` : (item.error || item.status);
+    if (item.status !== 'copied') {
+      return `<div class="article-queue-item ${cls}"><span class="article-queue-icon">${articleIcon(item.status)}</span><div><div class="article-queue-title">${escHtml(label)}</div><div class="article-queue-meta">${escHtml(meta)}</div></div></div>`;
+    }
+    const expanded = expandedArticleIndexes.has(index);
+    return `<article class="article-result ${expanded ? 'is-expanded' : ''}" data-result-index="${index}">
+      <button type="button" class="article-result-head" data-result-toggle="${index}" aria-expanded="${expanded}">
+        <span class="article-result-number">${index + 1}.</span><span class="article-result-title">${escHtml(label)}</span><span class="article-result-toggle">⌄</span>
+      </button>
+      <div class="article-result-body" ${expanded ? '' : 'hidden'}>
+        <div class="article-result-text">${escHtml(item.content)}</div>
+        <div class="article-result-footer"><span>${item.words} words</span><div class="article-result-actions">
+          <button class="result-action" type="button" data-copy-title="${index}">Copy title</button>
+          <button class="result-action result-action-primary" type="button" data-copy-post="${index}">Copy post</button>
+        </div></div>
+      </div>
+    </article>`;
+  }).join('');
+  el.articleQueueList.querySelectorAll('.article-result').forEach((card) => {
+    const textBox = card.querySelector('.article-result-text');
+    const savedTop = articleResultScrollTops.get(Number(card.dataset.resultIndex));
+    if (textBox && savedTop !== undefined) textBox.scrollTop = savedTop;
+  });
+}
+
+function articleStatusText(status, queue) {
+  if (status === 'completed') return `${queue.filter((item) => item.status === 'copied').length} articles copied`;
+  if (status === 'stopped') return 'Copying stopped';
+  return 'Ready to copy';
+}
+
+function articleIcon(status) {
+  return ({ pending: '○', loading: '◌', extracting: '◌', copied: '✓', failed: '✕' })[status] || '○';
+}
+
+async function copyArticleResults() {
+  const state = await sendMessage(MESSAGE_TYPES.GET_ARTICLE_COPY_STATE);
+  if (!state?.copiedText) return;
+  try {
+    await navigator.clipboard.writeText(state.copiedText);
+    el.btnCopyResults.textContent = 'Copied to clipboard ✓';
+    setTimeout(() => { el.btnCopyResults.textContent = 'Copy all results'; }, 1800);
+  } catch {
+    showArticleNotice('Clipboard access was blocked. Please try again.');
+  }
+}
+
+async function handleArticleResultClick(event) {
+  const toggle = event.target.closest('[data-result-toggle]');
+  if (toggle) {
+    const card = toggle.closest('.article-result');
+    const body = card.querySelector('.article-result-body');
+    const expanded = toggle.getAttribute('aria-expanded') === 'true';
+    toggle.setAttribute('aria-expanded', String(!expanded));
+    body.hidden = expanded;
+    card.classList.toggle('is-expanded', !expanded);
+    const index = Number(toggle.dataset.resultToggle);
+    if (expanded) expandedArticleIndexes.delete(index);
+    else expandedArticleIndexes.add(index);
+    return;
+  }
+
+  const button = event.target.closest('[data-copy-title], [data-copy-post]');
+  if (!button) return;
+  const index = Number(button.dataset.copyTitle ?? button.dataset.copyPost);
+  const state = await sendMessage(MESSAGE_TYPES.GET_ARTICLE_COPY_STATE);
+  const item = state?.queue?.[index];
+  const text = button.dataset.copyTitle !== undefined ? item?.title : item?.content;
+  if (!text) return;
+  try {
+    await navigator.clipboard.writeText(text);
+    const original = button.textContent;
+    button.textContent = 'Copied ✓';
+    setTimeout(() => { button.textContent = original; }, 1400);
+  } catch {
+    showArticleNotice('Clipboard access was blocked. Please try again.');
+  }
+}
+
+function resetArticleCopy() {
+  expandedArticleIndexes.clear();
+  articleResultScrollTops.clear();
+  articleSuccessDismissed = true;
+  articleCopyStarting = false;
+  articleCopyWasRunning = false;
+  el.articleSuccessScreen.hidden = true;
+  el.articleInputCard.hidden = false;
+  el.articleControls.hidden = false;
+  el.articleControls.classList.remove('is-copying');
+  el.articleProgressBar.closest('.article-progress-card').hidden = false;
+  el.articleQueueList.closest('.article-queue-card').hidden = false;
+  el.articleLinks.value = '';
+  updateArticleLinkCount();
+  el.articleQueueList.innerHTML = '';
+  el.articleStatus.textContent = 'Ready to copy';
+  el.articleProgress.textContent = '0 / 0';
+  el.articleProgressBar.style.width = '0%';
+  el.articleCurrentUrl.textContent = 'The source page will scroll to the highlighted article area while it is being copied.';
+}
+
+function showArticleNotice(message) {
+  el.articleStatus.textContent = message;
 }
 
 // ===========================

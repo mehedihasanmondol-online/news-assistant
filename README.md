@@ -11,6 +11,7 @@ A Chrome/Chromium Manifest V3 extension that takes a list of news titles and aut
 - **Background Operations**: Uses a background service worker to manage the download queue, ensuring it runs reliably even if the popup is closed.
 - **Organized Downloads**: Uses the Chrome Downloads API to save images into `Root Folder/Sanitized News Title/`.
 - **Robust Error Handling**: Skips failed images/titles gracefully without stopping the entire queue.
+- **Article Copy Tab**: A separate link queue opens each supplied article/post, highlights and scrolls to the detected main article area, then collects only its headings and readable paragraphs. Navigation, adverts, CTAs, related content, and comments are excluded where the page structure identifies them. The combined result can be copied to the clipboard.
 
 ## Architecture
 - **Popup**: Manages UI state, sends settings and start/stop signals.
@@ -29,6 +30,12 @@ A Chrome/Chromium Manifest V3 extension that takes a list of news titles and aut
 3. Configure settings (images per title, minimum width, etc.).
 4. Click **Start**.
 5. The extension will open a background tab and begin processing.
+
+### Article Copy
+1. Select **Article copy** in the side panel.
+2. Paste one `http` or `https` article/post URL on each line, then select **Start copying**.
+3. Watch the browser tab: the detected source content receives a green border and the page scrolls to it during extraction.
+4. When the queue completes, select **Copy all results**.
 
 ## Limitations
 - **Google DOM Changes**: Google Images frequently changes its HTML structure. The content script uses robust selectors, but might need updates if Google fundamentally alters its layout.
