@@ -185,7 +185,59 @@
       });
     }
 
+    // ── Method 3: Exhaustive Imageye Fallback ────────────────────────────────
+    // Gather all <img> elements and srcset attributes just like Imageye
+    const allImages = Array.from(document.images);
+    allImages.forEach(img => {
+      const src = img.currentSrc || img.src;
+      if (src && !src.startsWith('data:')) {
+        const url = normalizeUrl(src);
+        if (url && !seenUrls.has(url)) {
+           seenUrls.add(url);
+           candidates.push({ originalUrl: url, sourceUrl: null, width: img.naturalWidth || 0, height: img.naturalHeight || 0, thumbnailUrl: null, title: img.alt || img.title || '' });
+        }
+      }
+    });
+
+    const sources = document.querySelectorAll('source[srcset], img[srcset]');
+    sources.forEach(el => {
+      if (!el.srcset) return;
+      const srcUrls = el.srcset.split(', ').map(s => s.trim().split(' ')[0]);
+      srcUrls.forEach(src => {
+        const url = normalizeUrl(src);
+        if (url && !seenUrls.has(url)) {
+           seenUrls.add(url);
+           candidates.push({ originalUrl: url, sourceUrl: null, width: 0, height: 0, thumbnailUrl: null, title: '' });
+        }
+      });
+    });
+
     return candidates;
+  }
+
+  // ─── Auto-scroll logic (from Imageye) ─────────────────────────────────────
+  async function performAutoScroll(imagesPerTitle) {
+    let scrollCount = 0;
+    const maxScrolls = 15;
+    
+    // We want at least `imagesPerTitle * 3` img tags (since some will fail checks)
+    const targetImgCount = Math.max(50, (imagesPerTitle || 10) * 3);
+
+    while (scrollCount < maxScrolls) {
+      const rect = document.body.getBoundingClientRect();
+      const imgCount = document.querySelectorAll("img").length;
+      
+      // Stop if we have enough images, or if we reached the bottom
+      if (imgCount >= targetImgCount || Math.abs(rect.bottom - window.innerHeight) <= 100) {
+        break;
+      }
+      
+      scrollCount += 1;
+      window.scroll(0, window.innerHeight * scrollCount);
+      
+      // wait for lazy loading to happen
+      await new Promise(r => setTimeout(r, 800));
+    }
   }
 
   // Google increasingly exposes only thumbnail dimensions in its result DOM.
@@ -214,16 +266,18 @@
     });
   }
 
-  async function verifyCandidateDimensions(candidates, minimumWidth) {
+  async function verifyCandidateDimensions(candidates, minimumWidth, imagesPerTitle) {
     const verified = [];
-    // Keep this bounded so the background worker's image-search timeout is
-    // never held up by a large page full of slow hosts.
-    const queue = candidates.slice(0, 24);
-    const workerCount = Math.min(8, queue.length);
+    const targetCount = Math.max(imagesPerTitle || 13, 10);
+    
+    // Limit queue based on requested images to avoid timeouts, but ensure enough padding
+    const queue = candidates.slice(0, Math.max(100, targetCount * 4));
+    const workerCount = Math.min(12, queue.length);
     let nextIndex = 0;
 
     async function worker() {
-      while (nextIndex < queue.length) {
+      // Stop processing once we hit a safe padding of verified images
+      while (nextIndex < queue.length && verified.length < targetCount * 2) {
         const candidate = queue[nextIndex++];
         const dimensions = await getImageDimensions(candidate.originalUrl || candidate.thumbnailUrl);
         if (dimensions) {
@@ -244,7 +298,10 @@
       (async () => {
         try {
           const minimumWidth = Number(request.payload?.minimumWidth) || 0;
-          const candidates = await verifyCandidateDimensions(extractCandidates(), minimumWidth);
+          const imagesPerTitle = Number(request.payload?.imagesPerTitle) || 13;
+          
+          await performAutoScroll(imagesPerTitle);
+          const candidates = await verifyCandidateDimensions(extractCandidates(), minimumWidth, imagesPerTitle);
           sendResponse({ success: true, candidates });
         } catch (error) {
           sendResponse({ success: false, error: error.message, candidates: [] });

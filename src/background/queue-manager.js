@@ -177,7 +177,10 @@ export class QueueManager {
           setTimeout(() => {
             const extractionRequest = {
               action: 'EXTRACT_IMAGES',
-              payload: { minimumWidth: this.stateManager.getState().settings.minimumWidth }
+              payload: {
+                minimumWidth: this.stateManager.getState().settings.minimumWidth,
+                imagesPerTitle: this.stateManager.getState().settings.imagesPerTitle
+              }
             };
             chrome.tabs.sendMessage(tabId, extractionRequest, (response) => {
               if (chrome.runtime.lastError) {
