@@ -564,29 +564,38 @@ async function startArticleCopy() {
     activeArticleRunId = result.runId;
     el.articleSuccessScreen.hidden = true;
     el.articleInputCard.hidden = true;
-    el.articleControls.classList.add('is-copying');
   }
 }
 
+let initialArticleStateLoaded = false;
 async function refreshArticleCopyState() {
   const state = await sendMessage(MESSAGE_TYPES.GET_ARTICLE_COPY_STATE);
-  if (state) renderArticleCopyState(state);
+  if (state) {
+    if (!initialArticleStateLoaded) {
+      initialArticleStateLoaded = true;
+      if (state.status === 'completed') {
+        autoImageTriggeredRunId = state.runId;
+      }
+    }
+    renderArticleCopyState(state);
+  }
 }
 
 function renderArticleCopyState(state) {
   // A GET_STATE response can arrive after START_ARTICLE_COPY. Ignore that
   // stale completed batch rather than showing its success screen mid-run.
   if (activeArticleRunId !== null && state.runId !== activeArticleRunId) return;
+
   const queue = state.queue || [];
-  const active = state.currentIndex >= 0 ? queue[state.currentIndex] : null;
+  const active = queue[state.currentIndex];
   const completed = queue.filter((item) => item.status === 'copied' || item.status === 'failed').length;
+  
   const isCopying = state.status === 'copying';
   if (isCopying) {
     articleCopyStarting = false;
     articleCopyWasRunning = true;
   }
-  // Do not show a previous batch's completion screen while a new run is
-  // waiting for the background worker to transition into "copying".
+  
   const isCompleted = state.status === 'completed' && !articleSuccessDismissed && !articleCopyStarting;
   const copied = queue.filter((item) => item.status === 'copied');
   const failed = queue.filter((item) => item.status === 'failed');
@@ -603,7 +612,7 @@ function renderArticleCopyState(state) {
     el.articleSettingsSection.hidden = true;
     el.articleControlsWrapper.hidden = true;
     el.articleProgressBar.closest('.article-progress-card').hidden = true;
-    el.articleQueueList.closest('.article-queue-card').hidden = true;
+    el.articleQueueList.closest('.article-queue-card').hidden = false;
     el.articleSuccessCopied.textContent = copied.length;
     el.articleSuccessFailed.textContent = failed.length;
     el.articleSuccessWords.textContent = copied.reduce((sum, item) => sum + (item.words || 0), 0);
@@ -682,15 +691,22 @@ function articleIcon(status) {
   return ({ pending: '○', loading: '◌', extracting: '◌', copied: '✓', failed: '✕' })[status] || '○';
 }
 
-async function copyArticleResults() {
+async function copyArticleResults(event) {
+  const button = event ? event.currentTarget : el.btnCopyResults;
+  const originalHTML = button ? button.innerHTML : '';
+  
   const state = await sendMessage(MESSAGE_TYPES.GET_ARTICLE_COPY_STATE);
   if (!state?.copiedText) return;
+  
   try {
     await navigator.clipboard.writeText(state.copiedText);
-    el.btnCopyResults.textContent = 'Copied to clipboard ✓';
-    setTimeout(() => { el.btnCopyResults.textContent = 'Copy all results'; }, 1800);
-  } catch {
-    showArticleNotice('Clipboard access was blocked. Please try again.');
+    if (button) {
+      button.textContent = 'Copied to clipboard ✓';
+      setTimeout(() => { button.innerHTML = originalHTML; }, 1800);
+    }
+  } catch (error) {
+    console.error('Clipboard write failed:', error);
+    alert('Clipboard access was blocked. Please try again.');
   }
 }
 

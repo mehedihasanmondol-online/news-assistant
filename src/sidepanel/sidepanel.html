@@ -293,15 +293,6 @@
           <p id="articleCurrentUrl" class="article-current-url">The source page will scroll to the highlighted article area while it is being copied.</p>
           <div class="progress-bar-track"><div class="progress-bar-fill" id="articleProgressBar" style="width:0%"></div></div>
         </section>
-        <section class="card article-queue-card">
-          <div class="card-header" style="justify-content: space-between;">
-            <div style="display:flex;align-items:center;gap:8px;">
-              <span class="card-icon">🗂</span><h2>Article queue</h2>
-            </div>
-            <button id="btnClearArticleQueue" class="btn btn-danger" type="button" style="padding:4px 8px; font-size:10px; width:auto; margin:0; height:auto; min-width:0; min-height:0;" title="Clear saved data">Clear</button>
-          </div>
-          <div id="articleQueueList" class="article-queue-list"></div>
-        </section>
         <section class="article-success-screen" id="articleSuccessScreen" hidden>
           <div class="article-success-icon">✓</div>
           <h2>Articles copied!</h2>
@@ -314,6 +305,15 @@
           <button id="btnCopySuccessResults" class="btn btn-primary" type="button">📋 Copy all copied posts</button>
           <button id="btnArticleStartAgain" class="btn btn-secondary" type="button">↩ Copy more articles</button>
           <button id="btnClearArticleCopy" class="btn btn-danger" type="button" style="margin-top:8px;">🗑️ Clear saved data</button>
+        </section>
+        <section class="card article-queue-card">
+          <div class="card-header" style="justify-content: space-between;">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span class="card-icon">🗂</span><h2>Article queue</h2>
+            </div>
+            <button id="btnClearArticleQueue" class="btn btn-danger" type="button" style="padding:4px 8px; font-size:10px; width:auto; margin:0; height:auto; min-width:0; min-height:0;" title="Clear saved data">Clear</button>
+          </div>
+          <div id="articleQueueList" class="article-queue-list"></div>
         </section>
       </section>
 
