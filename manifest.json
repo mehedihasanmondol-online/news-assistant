@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "News Image Downloader",
+  "name": "News Assistant",
   "version": "1.0.0",
   "description": "Automatically download high-quality images from Google Images based on a list of news titles.",
   "permissions": [
@@ -20,7 +20,7 @@
     "type": "module"
   },
   "action": {
-    "default_title": "News Image Downloader",
+    "default_title": "News Assistant",
     "default_icon": {
       "16": "icons/icon16.png",
       "48": "icons/icon48.png",

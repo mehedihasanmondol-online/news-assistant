@@ -170,7 +170,7 @@ async function loadArticleSettings() {
   el.articleExcludeWords.value = s.excludedWords;
   el.skipLinkHeavy.checked = s.skipLinkHeavy;
   el.testMode.checked = s.testMode || false;
-  el.testDelaySeconds.value = s.testDelaySeconds || 5;
+  el.testDelaySeconds.value = s.testDelaySeconds || 2;
   el.testDelayRow.style.display = el.testMode.checked ? '' : 'none';
 }
 
@@ -610,13 +610,13 @@ function renderArticleCopyState(state) {
   const queue = state.queue || [];
   const active = queue[state.currentIndex];
   const completed = queue.filter((item) => item.status === 'copied' || item.status === 'failed').length;
-  
+
   const isCopying = state.status === 'copying';
   if (isCopying) {
     articleCopyStarting = false;
     articleCopyWasRunning = true;
   }
-  
+
   const isCompleted = state.status === 'completed' && !articleSuccessDismissed && !articleCopyStarting;
   const copied = queue.filter((item) => item.status === 'copied');
   const failed = queue.filter((item) => item.status === 'failed');
@@ -722,10 +722,10 @@ function articleIcon(status) {
 async function copyArticleResults(event) {
   const button = event ? event.currentTarget : el.btnCopyResults;
   const originalHTML = button ? button.innerHTML : '';
-  
+
   const state = await sendMessage(MESSAGE_TYPES.GET_ARTICLE_COPY_STATE);
   if (!state?.copiedText) return;
-  
+
   try {
     await navigator.clipboard.writeText(state.copiedText);
     if (button) {
