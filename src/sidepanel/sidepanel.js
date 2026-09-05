@@ -57,6 +57,7 @@ const el = {
   btnStartArticleCopy: document.getElementById('btnStartArticleCopy'),
   btnStopArticleCopy: document.getElementById('btnStopArticleCopy'),
   btnCopyResults: document.getElementById('btnCopyResults'),
+  btnCopyAllHeadingsMain: document.getElementById('btnCopyAllHeadingsMain'),
   articleStatus: document.getElementById('articleStatus'),
   articleProgress: document.getElementById('articleProgress'),
   articleProgressBar: document.getElementById('articleProgressBar'),
@@ -77,6 +78,7 @@ const el = {
   articleSuccessCopied: document.getElementById('articleSuccessCopied'),
   articleSuccessFailed: document.getElementById('articleSuccessFailed'),
   articleSuccessWords: document.getElementById('articleSuccessWords'),
+  btnCopyAllHeadings: document.getElementById('btnCopyAllHeadings'),
   btnCopySuccessResults: document.getElementById('btnCopySuccessResults'),
   btnArticleStartAgain: document.getElementById('btnArticleStartAgain'),
   btnClearArticleCopy: document.getElementById('btnClearArticleCopy'),
@@ -228,12 +230,14 @@ function setupListeners() {
   el.btnStartArticleCopy.addEventListener('click', startArticleCopy);
   el.btnStopArticleCopy.addEventListener('click', () => sendMessage(MESSAGE_TYPES.STOP_ARTICLE_COPY));
   el.btnCopyResults.addEventListener('click', copyArticleResults);
+  el.btnCopyAllHeadingsMain.addEventListener('click', copyAllHeadings);
   el.articleQueueList.addEventListener('click', handleArticleResultClick);
   el.articleQueueList.addEventListener('scroll', (event) => {
     const textBox = event.target.closest?.('.article-result-text');
     const card = textBox?.closest('.article-result');
     if (card) articleResultScrollTops.set(Number(card.dataset.resultIndex), textBox.scrollTop);
   }, true);
+  el.btnCopyAllHeadings.addEventListener('click', copyAllHeadings);
   el.btnCopySuccessResults.addEventListener('click', copyArticleResults);
   el.btnArticleStartAgain.addEventListener('click', resetArticleCopy);
   el.btnClearArticleCopy.addEventListener('click', async () => {
@@ -623,6 +627,7 @@ function renderArticleCopyState(state) {
   el.btnStartArticleCopy.disabled = isCopying;
   el.btnStopArticleCopy.disabled = !isCopying;
   el.btnCopyResults.disabled = !state.copiedText;
+  el.btnCopyAllHeadingsMain.disabled = !state.copiedText;
   el.articleSuccessScreen.hidden = !isCompleted;
   if (isCompleted) {
     el.articleInputCard.hidden = true;
@@ -727,6 +732,25 @@ async function copyArticleResults(event) {
       button.textContent = 'Copied to clipboard ✓';
       setTimeout(() => { button.innerHTML = originalHTML; }, 1800);
     }
+  } catch (error) {
+    console.error('Clipboard write failed:', error);
+    alert('Clipboard access was blocked. Please try again.');
+  }
+}
+
+async function copyAllHeadings(event) {
+  const button = event.currentTarget;
+  const originalHTML = button.innerHTML;
+  const state = await sendMessage(MESSAGE_TYPES.GET_ARTICLE_COPY_STATE);
+  const headings = (state?.queue || [])
+    .filter((item) => item.status === 'copied' && item.title)
+    .map((item) => item.title)
+    .join('\n');
+  if (!headings) return;
+  try {
+    await navigator.clipboard.writeText(headings);
+    button.textContent = 'Copied to clipboard ✓';
+    setTimeout(() => { button.innerHTML = originalHTML; }, 1800);
   } catch (error) {
     console.error('Clipboard write failed:', error);
     alert('Clipboard access was blocked. Please try again.');

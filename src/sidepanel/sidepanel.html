@@ -299,7 +299,8 @@
           <section class="article-controls" id="articleControls">
             <button id="btnStartArticleCopy" class="btn btn-primary" type="button"><span class="btn-icon">▶</span> Start copying</button>
             <button id="btnStopArticleCopy" class="btn btn-danger" type="button" disabled><span class="btn-icon">■</span> Stop</button>
-            <button id="btnCopyResults" class="btn btn-secondary" type="button" disabled>Copy all results</button>
+            <button id="btnCopyAllHeadingsMain" class="btn btn-secondary" type="button" disabled>📝 Copy headings</button>
+            <button id="btnCopyResults" class="btn btn-secondary" type="button" disabled>📋 Copy all results</button>
           </section>
         </section>
         <section class="card article-progress-card">
@@ -316,9 +317,12 @@
             <div><strong id="articleSuccessFailed">0</strong><span>Skipped</span></div>
             <div><strong id="articleSuccessWords">0</strong><span>Words</span></div>
           </div>
-          <button id="btnCopySuccessResults" class="btn btn-primary" type="button">📋 Copy all copied posts</button>
+          <div class="article-success-actions">
+            <button id="btnCopyAllHeadings" class="btn btn-secondary" type="button">📝 Copy all headings</button>
+            <button id="btnCopySuccessResults" class="btn btn-primary" type="button">📋 Copy all posts</button>
+            <button id="btnClearArticleCopy" class="btn btn-danger" type="button">🗑️ Clear</button>
+          </div>
           <button id="btnArticleStartAgain" class="btn btn-secondary" type="button">↩ Copy more articles</button>
-          <button id="btnClearArticleCopy" class="btn btn-danger" type="button" style="margin-top:8px;">🗑️ Clear saved data</button>
         </section>
         <section class="card article-queue-card">
           <div class="card-header" style="justify-content: space-between;">
