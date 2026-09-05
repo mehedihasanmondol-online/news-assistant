@@ -63,6 +63,7 @@ const el = {
   articleCurrentUrl: document.getElementById('articleCurrentUrl'),
   articleQueueList: document.getElementById('articleQueueList'),
   articleInputCard: document.getElementById('articleInputCard'),
+  articleSettingsSection: document.getElementById('articleSettingsSection'),
   articleSettingsToggle: document.getElementById('articleSettingsToggle'),
   articleSettingsArrow: document.getElementById('articleSettingsArrow'),
   articleSettingsBody: document.getElementById('articleSettingsBody'),
@@ -582,6 +583,7 @@ function renderArticleCopyState(state) {
   el.articleSuccessScreen.hidden = !isCompleted;
   if (isCompleted) {
     el.articleInputCard.hidden = true;
+    el.articleSettingsSection.hidden = true;
     el.articleControls.hidden = true;
     el.articleProgressBar.closest('.article-progress-card').hidden = true;
     el.articleQueueList.closest('.article-queue-card').hidden = true;
@@ -591,12 +593,14 @@ function renderArticleCopyState(state) {
     el.articleSuccessSummary.textContent = `${copied.length} article${copied.length === 1 ? '' : 's'} ready. Copy everything at once, or start another batch.`;
   } else if (isCopying) {
     el.articleInputCard.hidden = true;
+    el.articleSettingsSection.hidden = true;
     el.articleControls.hidden = false;
     el.articleControls.classList.add('is-copying');
     el.articleProgressBar.closest('.article-progress-card').hidden = false;
     el.articleQueueList.closest('.article-queue-card').hidden = false;
   } else {
     el.articleInputCard.hidden = false;
+    el.articleSettingsSection.hidden = false;
     el.articleControls.hidden = false;
     el.articleControls.classList.remove('is-copying');
     // Show progress/queue cards only when there's run data from the current
