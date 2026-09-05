@@ -11,7 +11,9 @@ export const DEFAULT_SETTINGS = {
 
 export const DEFAULT_ARTICLE_SETTINGS = {
   excludedWords: 'READ MORE\nRead more\nAlso read\nFollow us\nSign up\nSubscribe\nPhoto:\nCredit:\nImage:\nSponsored\nAdvertisement\nAffiliate\nClick here\nWatch:\nJoin our ',
-  skipLinkHeavy: true
+  skipLinkHeavy: true,
+  testMode: false,
+  testDelaySeconds: 5
 };
 
 export const QUEUE_STATUS = {

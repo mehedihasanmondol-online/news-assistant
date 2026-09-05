@@ -80,7 +80,7 @@
       try {
         const root = findArticleRoot();
         const { text, nodes } = collectContent(root, request.options);
-        await showCopiedSequence(nodes);
+        await showCopiedSequence(nodes, request.options);
         showSuccessUI(nodes.length);
         sendResponse({ title: getArticleTitle(root) || document.title, text });
       } catch (error) {
@@ -207,16 +207,22 @@
     return false;
   }
 
-  async function showCopiedSequence(nodes) {
+  async function showCopiedSequence(nodes, options = {}) {
+    const isTestMode = options.testMode === true;
+    const testDelayMs = (options.testDelaySeconds || 5) * 1000;
     for (const node of nodes) {
       document.querySelectorAll('[data-news-assistant-copying]').forEach((element) => {
         element.removeAttribute('data-news-assistant-copying');
         element.removeAttribute('data-news-assistant-copying-label');
       });
       node.setAttribute('data-news-assistant-copying', 'true');
-      node.setAttribute('data-news-assistant-copying-label', `Copying ${node.tagName === 'P' ? 'paragraph' : 'heading'}`);
+      const tag = node.tagName === 'P' ? 'paragraph' : 'heading';
+      const label = isTestMode
+        ? `🧪 Test: ${tag} — ${options.testDelaySeconds}s delay`
+        : `Copying ${tag}`;
+      node.setAttribute('data-news-assistant-copying-label', label);
       node.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      await new Promise((resolve) => setTimeout(resolve, 350));
+      await new Promise((resolve) => setTimeout(resolve, isTestMode ? testDelayMs : 350));
     }
   }
 

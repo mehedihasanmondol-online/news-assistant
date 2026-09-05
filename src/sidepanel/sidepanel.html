@@ -272,6 +272,20 @@
                   Skip promotional / link-heavy paragraphs
                 </label>
               </div>
+              <div class="setting-row" style="margin-top:8px; border-top: 1px solid rgba(255,255,255,0.08); padding-top:10px;">
+                <label class="checkbox-label" for="testMode">
+                  <input type="checkbox" id="testMode">
+                  <span>🧪 Test Mode</span>
+                </label>
+                <span class="setting-hint" style="margin-left:0; margin-top:3px;">Adds a visible delay between each article so you can verify accuracy.</span>
+              </div>
+              <div class="setting-row" id="testDelayRow" style="display:none;">
+                <label for="testDelaySeconds">Delay between articles</label>
+                <div class="input-with-unit">
+                  <input type="number" id="testDelaySeconds" min="1" max="60" value="5">
+                  <span class="unit">sec</span>
+                </div>
+              </div>
             </div>
             <button id="btnSaveArticleSettings" class="btn btn-secondary" type="button" style="margin-top:10px;">Save settings</button>
             <span class="save-status" id="articleSaveStatus" aria-live="polite"></span>

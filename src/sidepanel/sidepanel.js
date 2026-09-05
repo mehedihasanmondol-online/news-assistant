@@ -83,6 +83,9 @@ const el = {
   btnClearArticleQueue: document.getElementById('btnClearArticleQueue'),
   autoDownloadImages: document.getElementById('autoDownloadImages'),
   articleControlsWrapper: document.getElementById('articleControlsWrapper'),
+  testMode: document.getElementById('testMode'),
+  testDelaySeconds: document.getElementById('testDelaySeconds'),
+  testDelayRow: document.getElementById('testDelayRow'),
 };
 
 // ===========================
@@ -163,12 +166,17 @@ async function loadArticleSettings() {
   const s = { ...DEFAULT_ARTICLE_SETTINGS, ...(data.articleCopySettings || {}) };
   el.articleExcludeWords.value = s.excludedWords;
   el.skipLinkHeavy.checked = s.skipLinkHeavy;
+  el.testMode.checked = s.testMode || false;
+  el.testDelaySeconds.value = s.testDelaySeconds || 5;
+  el.testDelayRow.style.display = el.testMode.checked ? '' : 'none';
 }
 
 function readArticleSettings() {
   return {
     excludedWords: el.articleExcludeWords.value,
-    skipLinkHeavy: el.skipLinkHeavy.checked
+    skipLinkHeavy: el.skipLinkHeavy.checked,
+    testMode: el.testMode.checked,
+    testDelaySeconds: parseInt(el.testDelaySeconds.value, 10) || 5
   };
 }
 
@@ -210,6 +218,9 @@ function setupListeners() {
     el.articleSettingsArrow.classList.toggle('open', !hidden);
   });
   el.btnSaveArticleSettings.addEventListener('click', saveArticleSettings);
+  el.testMode.addEventListener('change', () => {
+    el.testDelayRow.style.display = el.testMode.checked ? '' : 'none';
+  });
 
   el.articleLinks.addEventListener('input', updateArticleLinkCount);
   el.btnPasteArticleLinks.addEventListener('click', pasteArticleLinksFromClipboard);
