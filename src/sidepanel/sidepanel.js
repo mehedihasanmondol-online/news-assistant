@@ -101,6 +101,7 @@ let articleCopyStarting = false;
 let articleCopyWasRunning = false;
 let activeArticleRunId = null;
 let autoImageTriggeredRunId = null;
+let articleRestoredWithData = false; // True when browser reloads with existing saved posts — skips success screen but keeps queue visible
 
 document.addEventListener('DOMContentLoaded', async () => {
   await loadSettings();
@@ -586,6 +587,11 @@ async function refreshArticleCopyState() {
       initialArticleStateLoaded = true;
       if (state.status === 'completed') {
         autoImageTriggeredRunId = state.runId;
+        // On reopen: suppress success screen but keep queue visible so user
+        // can copy or clear existing saved posts without seeing the popup.
+        articleSuccessDismissed = true;
+        articleRestoredWithData = state.queue?.length > 0;
+        articleCopyWasRunning = true; // treat as a previous run so queue shows
       }
     }
     renderArticleCopyState(state);
@@ -654,8 +660,10 @@ function renderArticleCopyState(state) {
     el.articleSettingsSection.hidden = false;
     el.articleControlsWrapper.hidden = false;
     el.articleControls.classList.remove('is-copying');
-    // Show progress/queue cards if there is run data (either from current session or restored)
-    const isFresh = articleSuccessDismissed || (!articleCopyWasRunning && queue.length === 0);
+    // Show progress/queue cards if there is run data.
+    // articleRestoredWithData = restored on reload (show queue).
+    // articleSuccessDismissed without restore = user dismissed mid-session (hide queue for fresh feel).
+    const isFresh = (articleSuccessDismissed && !articleRestoredWithData) || (!articleCopyWasRunning && queue.length === 0);
     const hasRunData = queue.length > 0 && !isFresh;
     el.articleProgressBar.closest('.article-progress-card').hidden = !hasRunData;
     el.articleQueueList.closest('.article-queue-card').hidden = !hasRunData;
@@ -757,6 +765,7 @@ function resetArticleCopy() {
   expandedArticleIndexes.clear();
   articleResultScrollTops.clear();
   articleSuccessDismissed = true;
+  articleRestoredWithData = false; // After manual reset, hide queue on next dismiss
   articleCopyStarting = false;
   articleCopyWasRunning = false;
   activeArticleRunId = null;
