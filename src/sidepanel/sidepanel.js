@@ -635,6 +635,7 @@ function renderArticleCopyState(state) {
     el.articleSuccessWords.textContent = copied.reduce((sum, item) => sum + (item.words || 0), 0);
     el.articleSuccessSummary.textContent = `${copied.length} article${copied.length === 1 ? '' : 's'} ready. Copy everything at once, or start another batch.`;
 
+
     if (el.autoDownloadImages.checked && autoImageTriggeredRunId !== state.runId) {
       autoImageTriggeredRunId = state.runId;
       if (copied.length > 0) {
@@ -681,15 +682,18 @@ function renderArticleCopyState(state) {
     }
     const expanded = expandedArticleIndexes.has(index);
     return `<article class="article-result ${expanded ? 'is-expanded' : ''}" data-result-index="${index}">
-      <button type="button" class="article-result-head" data-result-toggle="${index}" aria-expanded="${expanded}">
-        <span class="article-result-number">${index + 1}.</span><span class="article-result-title">${escHtml(label)}</span><span class="article-result-toggle">⌄</span>
-      </button>
+      <div class="article-result-head-row">
+        <button type="button" class="article-result-head" data-result-toggle="${index}" aria-expanded="${expanded}">
+          <span class="article-result-number">${index + 1}.</span><span class="article-result-title">${escHtml(label)}</span><span class="article-result-toggle">⌄</span>
+        </button>
+        <div class="article-result-inline-actions">
+          <button class="result-action" type="button" data-copy-title="${index}">Copy heading</button>
+          <button class="result-action result-action-primary" type="button" data-copy-post="${index}">Copy post</button>
+        </div>
+      </div>
       <div class="article-result-body" ${expanded ? '' : 'hidden'}>
         <div class="article-result-text">${escHtml(item.content)}</div>
-        <div class="article-result-footer"><span>${item.words} words</span><div class="article-result-actions">
-          <button class="result-action" type="button" data-copy-title="${index}">Copy title</button>
-          <button class="result-action result-action-primary" type="button" data-copy-post="${index}">Copy post</button>
-        </div></div>
+        <div class="article-result-footer"><span>${item.words} words</span></div>
       </div>
     </article>`;
   }).join('');
@@ -760,6 +764,7 @@ async function handleArticleResultClick(event) {
     showArticleNotice('Clipboard access was blocked. Please try again.');
   }
 }
+
 
 function resetArticleCopy() {
   expandedArticleIndexes.clear();
