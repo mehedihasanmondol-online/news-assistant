@@ -37,7 +37,8 @@ export class ArticleCopyManager {
     this.saveState();
   }
 
-  fullReset() {
+  async fullReset() {
+    await this.initPromise;
     this.runId = 0;
     this.reset();
   }
@@ -48,6 +49,8 @@ export class ArticleCopyManager {
   }
 
   async start(links, tabId, options = {}) {
+    await this.initPromise;
+    if (this.state.status === 'copying') return;
     if (!tabId) throw new Error('No browser tab is available for opening the links.');
     this.runId += 1;
     this.reset();
@@ -56,6 +59,11 @@ export class ArticleCopyManager {
     this.state.status = 'copying';
     this.saveState();
 
+    // Run queue in background
+    this._processQueue(options).catch(e => console.error('Queue error:', e));
+  }
+
+  async _processQueue(options) {
     for (let index = 0; index < this.state.queue.length && !this.stopped; index += 1) {
       this.state.currentIndex = index;
       const item = this.state.queue[index];
@@ -84,7 +92,8 @@ export class ArticleCopyManager {
     this.saveState();
   }
 
-  stop() {
+  async stop() {
+    await this.initPromise;
     this.stopped = true;
     this.state.status = 'stopped';
     this.saveState();

@@ -81,6 +81,8 @@ const el = {
   btnArticleStartAgain: document.getElementById('btnArticleStartAgain'),
   btnClearArticleCopy: document.getElementById('btnClearArticleCopy'),
   btnClearArticleQueue: document.getElementById('btnClearArticleQueue'),
+  autoDownloadImages: document.getElementById('autoDownloadImages'),
+  articleControlsWrapper: document.getElementById('articleControlsWrapper'),
 };
 
 // ===========================
@@ -95,6 +97,7 @@ let articleSuccessDismissed = false;
 let articleCopyStarting = false;
 let articleCopyWasRunning = false;
 let activeArticleRunId = null;
+let autoImageTriggeredRunId = null;
 
 document.addEventListener('DOMContentLoaded', async () => {
   await loadSettings();
@@ -598,24 +601,38 @@ function renderArticleCopyState(state) {
   if (isCompleted) {
     el.articleInputCard.hidden = true;
     el.articleSettingsSection.hidden = true;
-    el.articleControls.hidden = true;
+    el.articleControlsWrapper.hidden = true;
     el.articleProgressBar.closest('.article-progress-card').hidden = true;
     el.articleQueueList.closest('.article-queue-card').hidden = true;
     el.articleSuccessCopied.textContent = copied.length;
     el.articleSuccessFailed.textContent = failed.length;
     el.articleSuccessWords.textContent = copied.reduce((sum, item) => sum + (item.words || 0), 0);
     el.articleSuccessSummary.textContent = `${copied.length} article${copied.length === 1 ? '' : 's'} ready. Copy everything at once, or start another batch.`;
+
+    if (el.autoDownloadImages.checked && autoImageTriggeredRunId !== state.runId) {
+      autoImageTriggeredRunId = state.runId;
+      if (copied.length > 0) {
+        // Switch tab
+        switchTool('images');
+        // Extract titles and fill input
+        const titles = copied.map((item) => item.title).join('\n');
+        el.titles.value = titles;
+        updateTitleCount();
+        // Start download automatically
+        setTimeout(() => handleStart(), 300);
+      }
+    }
   } else if (isCopying) {
     el.articleInputCard.hidden = true;
     el.articleSettingsSection.hidden = true;
-    el.articleControls.hidden = false;
+    el.articleControlsWrapper.hidden = false;
     el.articleControls.classList.add('is-copying');
     el.articleProgressBar.closest('.article-progress-card').hidden = false;
     el.articleQueueList.closest('.article-queue-card').hidden = false;
   } else {
     el.articleInputCard.hidden = false;
     el.articleSettingsSection.hidden = false;
-    el.articleControls.hidden = false;
+    el.articleControlsWrapper.hidden = false;
     el.articleControls.classList.remove('is-copying');
     // Show progress/queue cards if there is run data (either from current session or restored)
     const isFresh = articleSuccessDismissed || (!articleCopyWasRunning && queue.length === 0);

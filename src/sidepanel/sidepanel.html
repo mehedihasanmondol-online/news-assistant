@@ -26,11 +26,11 @@
     <!-- Main Content -->
     <main class="app-main">
       <nav class="tool-tabs" aria-label="Extension tools">
-        <button class="tool-tab is-active" type="button" data-tool="images">Image downloader</button>
-        <button class="tool-tab" type="button" data-tool="articles">Article copy</button>
+        <button class="tool-tab is-active" type="button" data-tool="articles">Article copy</button>
+        <button class="tool-tab" type="button" data-tool="images">Image downloader</button>
       </nav>
 
-      <div id="imageTool">
+      <div id="imageTool" hidden>
 
       <!-- ══ INPUT VIEW (hidden after completion) ══ -->
       <div id="inputView">
@@ -243,7 +243,7 @@
 
       </div><!-- /#imageTool -->
 
-      <section id="articleTool" class="article-tool" hidden>
+      <section id="articleTool" class="article-tool">
         <section class="card" id="articleInputCard">
           <div class="card-header"><span class="card-icon">📄</span><h2>Copy article content</h2></div>
           <p class="article-help">Paste one article, news, or post link per line. Only the main headings and paragraphs are copied; ads, CTAs, related links, and comments are skipped.</p>
@@ -277,10 +277,16 @@
             <span class="save-status" id="articleSaveStatus" aria-live="polite"></span>
           </div>
         </section>
-        <section class="article-controls" id="articleControls">
-          <button id="btnStartArticleCopy" class="btn btn-primary" type="button"><span class="btn-icon">▶</span> Start copying</button>
-          <button id="btnStopArticleCopy" class="btn btn-danger" type="button" disabled><span class="btn-icon">■</span> Stop</button>
-          <button id="btnCopyResults" class="btn btn-secondary" type="button" disabled>Copy all results</button>
+        <section class="article-controls-wrapper" id="articleControlsWrapper">
+          <label class="checkbox-label" for="autoDownloadImages" style="margin-bottom: 8px; justify-content: center; font-size: 12px;">
+            <input type="checkbox" id="autoDownloadImages" checked>
+            Also download images for these articles
+          </label>
+          <section class="article-controls" id="articleControls">
+            <button id="btnStartArticleCopy" class="btn btn-primary" type="button"><span class="btn-icon">▶</span> Start copying</button>
+            <button id="btnStopArticleCopy" class="btn btn-danger" type="button" disabled><span class="btn-icon">■</span> Stop</button>
+            <button id="btnCopyResults" class="btn btn-secondary" type="button" disabled>Copy all results</button>
+          </section>
         </section>
         <section class="card article-progress-card">
           <div class="article-progress-title"><span id="articleStatus">Ready to copy</span><span id="articleProgress">0 / 0</span></div>
