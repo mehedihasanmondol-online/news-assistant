@@ -152,7 +152,7 @@
       if (skipLinkHeavy && isLinkHeavy(node)) continue;
       const value = (node.innerText || '').replace(/\s+/g, ' ').trim();
       const isHeading = /^H[1-4]$/.test(node.tagName);
-      if ((isHeading ? value.length < 5 : value.length < 25) || looksLikeNoise(value, excludedPrefixes) || seen.has(value)) continue;
+      if ((isHeading ? value.length < 5 : value.length < 25) || looksLikeNoise(value, excludedPrefixes, isHeading) || seen.has(value)) continue;
       seen.add(value);
       parts.push(value);
       nodes.push(node);
@@ -185,7 +185,7 @@
     return (linkLen / textLen) > 0.6;
   }
 
-  function looksLikeNoise(value, excludedPrefixes = []) {
+  function looksLikeNoise(value, excludedPrefixes = [], isHeading = false) {
     const lowerValue = value.toLowerCase().replace(/^[\W_]+/, '');
     
     // User-configured exclusions
@@ -193,8 +193,8 @@
 
     // Known noise labels
     if (/^(advertisement|advertise[sd]?|sponsored(?: content)?|promoted story|read more|related (stories?|articles?)|comments?|subscribe|sign up|sign in|log in|follow us|share this|click here|buy now|shop now|cookie|privacy policy|terms of use|newsletter|taboola|outbrain)$/i.test(value)) return true;
-    // Very short — likely a label, tag, or button text
-    if (value.split(/\s+/).length < 4 && value.length < 40) return true;
+    // Very short — likely a label, tag, or button text (skip this check for headings as they are often short)
+    if (!isHeading && value.split(/\s+/).length < 4 && value.length < 40) return true;
     // Looks like a URL
     if (/^https?:\/\//i.test(value)) return true;
     // Mostly punctuation or symbols
