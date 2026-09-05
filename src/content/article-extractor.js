@@ -81,6 +81,7 @@
         const root = findArticleRoot();
         const { text, nodes } = collectContent(root, request.options);
         await showCopiedSequence(nodes);
+        showSuccessUI(nodes.length);
         sendResponse({ title: getArticleTitle(root) || document.title, text });
       } catch (error) {
         sendResponse({ error: error.message });
@@ -217,5 +218,59 @@
       node.scrollIntoView({ behavior: 'smooth', block: 'center' });
       await new Promise((resolve) => setTimeout(resolve, 350));
     }
+  }
+
+  function showSuccessUI(nodesCount) {
+    // Clean up any remaining highlights from the copying sequence
+    document.querySelectorAll('[data-news-assistant-copying]').forEach((element) => {
+      element.removeAttribute('data-news-assistant-copying');
+      element.removeAttribute('data-news-assistant-copying-label');
+    });
+
+    const successUI = document.createElement('div');
+    successUI.innerHTML = `
+      <div style="
+        position: fixed;
+        bottom: 24px;
+        right: 24px;
+        background: #16a34a;
+        color: white;
+        padding: 16px 24px;
+        border-radius: 12px;
+        box-shadow: 0 10px 25px -5px rgba(22, 163, 74, 0.4);
+        font-family: system-ui, -apple-system, sans-serif;
+        font-size: 16px;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        z-index: 2147483647;
+        opacity: 0;
+        transform: translateY(20px);
+        transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+      ">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+          <polyline points="22 4 12 14.01 9 11.01"></polyline>
+        </svg>
+        Article successfully extracted! (${nodesCount} elements copied)
+      </div>
+    `;
+    document.body.appendChild(successUI);
+
+    // Animate in
+    requestAnimationFrame(() => {
+      successUI.firstElementChild.style.opacity = '1';
+      successUI.firstElementChild.style.transform = 'translateY(0)';
+    });
+
+    // Remove after 3.5 seconds
+    setTimeout(() => {
+      if (successUI.firstElementChild) {
+        successUI.firstElementChild.style.opacity = '0';
+        successUI.firstElementChild.style.transform = 'translateY(20px)';
+      }
+      setTimeout(() => successUI.remove(), 400);
+    }, 3500);
   }
 })();
