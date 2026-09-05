@@ -79,6 +79,8 @@ const el = {
   articleSuccessWords: document.getElementById('articleSuccessWords'),
   btnCopySuccessResults: document.getElementById('btnCopySuccessResults'),
   btnArticleStartAgain: document.getElementById('btnArticleStartAgain'),
+  btnClearArticleCopy: document.getElementById('btnClearArticleCopy'),
+  btnClearArticleQueue: document.getElementById('btnClearArticleQueue'),
 };
 
 // ===========================
@@ -219,6 +221,18 @@ function setupListeners() {
   }, true);
   el.btnCopySuccessResults.addEventListener('click', copyArticleResults);
   el.btnArticleStartAgain.addEventListener('click', resetArticleCopy);
+  el.btnClearArticleCopy.addEventListener('click', async () => {
+    await sendMessage(MESSAGE_TYPES.CLEAR_ARTICLE_COPY);
+    articleSuccessDismissed = false;
+    articleCopyWasRunning = false;
+    await refreshArticleCopyState();
+  });
+  el.btnClearArticleQueue.addEventListener('click', async () => {
+    await sendMessage(MESSAGE_TYPES.CLEAR_ARTICLE_COPY);
+    articleSuccessDismissed = false;
+    articleCopyWasRunning = false;
+    await refreshArticleCopyState();
+  });
   updateArticleLinkCount();
 }
 
@@ -570,7 +584,7 @@ function renderArticleCopyState(state) {
   }
   // Do not show a previous batch's completion screen while a new run is
   // waiting for the background worker to transition into "copying".
-  const isCompleted = state.status === 'completed' && !articleSuccessDismissed && !articleCopyStarting && articleCopyWasRunning;
+  const isCompleted = state.status === 'completed' && !articleSuccessDismissed && !articleCopyStarting;
   const copied = queue.filter((item) => item.status === 'copied');
   const failed = queue.filter((item) => item.status === 'failed');
   el.articleStatus.textContent = isCopying ? (active?.status === 'loading' ? 'Opening page…' : 'Finding article…') : articleStatusText(state.status, queue);
@@ -603,10 +617,8 @@ function renderArticleCopyState(state) {
     el.articleSettingsSection.hidden = false;
     el.articleControls.hidden = false;
     el.articleControls.classList.remove('is-copying');
-    // Show progress/queue cards only when there's run data from the current
-    // session. After "Copy more articles" (articleSuccessDismissed=true and
-    // articleCopyWasRunning=false), hide them so the UI starts fresh.
-    const isFresh = articleSuccessDismissed || !articleCopyWasRunning;
+    // Show progress/queue cards if there is run data (either from current session or restored)
+    const isFresh = articleSuccessDismissed || (!articleCopyWasRunning && queue.length === 0);
     const hasRunData = queue.length > 0 && !isFresh;
     el.articleProgressBar.closest('.article-progress-card').hidden = !hasRunData;
     el.articleQueueList.closest('.article-queue-card').hidden = !hasRunData;

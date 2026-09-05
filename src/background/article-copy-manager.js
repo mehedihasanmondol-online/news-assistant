@@ -6,15 +6,44 @@ const WAIT_AFTER_LOAD_MS = 700;
 export class ArticleCopyManager {
   constructor() {
     this.runId = 0;
-    this.reset();
+    this.state = { runId: this.runId, status: 'idle', queue: [], currentIndex: -1, copiedText: '', error: '' };
+    this.stopped = false;
+    this.initPromise = this.loadState();
+  }
+
+  async loadState() {
+    try {
+      const data = await chrome.storage.local.get('articleCopyState');
+      if (data.articleCopyState) {
+        this.state = data.articleCopyState;
+        this.runId = this.state.runId || 0;
+        // If it was interrupted mid-run, mark it as stopped
+        if (this.state.status === 'copying') {
+          this.state.status = 'stopped';
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to load article copy state:', e);
+    }
+  }
+
+  saveState() {
+    chrome.storage.local.set({ articleCopyState: this.state }).catch(e => console.warn('Failed to save article copy state:', e));
   }
 
   reset() {
     this.state = { runId: this.runId, status: 'idle', queue: [], currentIndex: -1, copiedText: '', error: '' };
     this.stopped = false;
+    this.saveState();
   }
 
-  getState() {
+  fullReset() {
+    this.runId = 0;
+    this.reset();
+  }
+
+  async getState() {
+    await this.initPromise;
     return this.state;
   }
 
@@ -25,15 +54,18 @@ export class ArticleCopyManager {
     this.tabId = tabId;
     this.state.queue = links.map((url) => ({ url, status: 'pending', title: '', content: '', words: 0, error: '' }));
     this.state.status = 'copying';
+    this.saveState();
 
     for (let index = 0; index < this.state.queue.length && !this.stopped; index += 1) {
       this.state.currentIndex = index;
       const item = this.state.queue[index];
       item.status = 'loading';
+      this.saveState();
       try {
         await this.navigateAndWait(item.url);
         if (this.stopped) break;
         item.status = 'extracting';
+        this.saveState();
         const result = await chrome.tabs.sendMessage(this.tabId, { action: MESSAGE_TYPES.ARTICLE_CONTENT_EXTRACTED, options });
         if (!result?.text) throw new Error('No article text was found on this page.');
         item.title = result.title || 'Untitled article';
@@ -45,14 +77,17 @@ export class ArticleCopyManager {
         item.status = 'failed';
         item.error = error.message || 'Could not read this link.';
       }
+      this.saveState();
     }
     this.state.currentIndex = -1;
     this.state.status = this.stopped ? 'stopped' : 'completed';
+    this.saveState();
   }
 
   stop() {
     this.stopped = true;
     this.state.status = 'stopped';
+    this.saveState();
   }
 
   async navigateAndWait(url) {
