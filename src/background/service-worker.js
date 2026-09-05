@@ -55,7 +55,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       break;
 
     case MESSAGE_TYPES.START_ARTICLE_COPY:
-      articleCopyManager.start(request.payload.links, request.payload.tabId)
+      articleCopyManager.start(request.payload.links, request.payload.tabId, request.payload.options)
         .catch((error) => console.error('Article copy queue failed:', error));
       sendResponse({ success: true, runId: articleCopyManager.getState().runId });
       break;

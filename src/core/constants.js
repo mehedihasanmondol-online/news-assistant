@@ -9,6 +9,11 @@ export const DEFAULT_SETTINGS = {
   delayBetweenSearchesMs: 3000
 };
 
+export const DEFAULT_ARTICLE_SETTINGS = {
+  excludedWords: 'READ MORE\nRead more\nAlso read\nFollow us\nSign up\nSubscribe\nPhoto:\nCredit:\nImage:\nSponsored\nAdvertisement\nAffiliate\nClick here\nWatch:\nJoin our ',
+  skipLinkHeavy: true
+};
+
 export const QUEUE_STATUS = {
   PENDING: 'pending',
   SEARCHING: 'searching',

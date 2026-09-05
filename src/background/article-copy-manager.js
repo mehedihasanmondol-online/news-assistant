@@ -18,7 +18,7 @@ export class ArticleCopyManager {
     return this.state;
   }
 
-  async start(links, tabId) {
+  async start(links, tabId, options = {}) {
     if (!tabId) throw new Error('No browser tab is available for opening the links.');
     this.runId += 1;
     this.reset();
@@ -34,7 +34,7 @@ export class ArticleCopyManager {
         await this.navigateAndWait(item.url);
         if (this.stopped) break;
         item.status = 'extracting';
-        const result = await chrome.tabs.sendMessage(this.tabId, { action: MESSAGE_TYPES.ARTICLE_CONTENT_EXTRACTED });
+        const result = await chrome.tabs.sendMessage(this.tabId, { action: MESSAGE_TYPES.ARTICLE_CONTENT_EXTRACTED, options });
         if (!result?.text) throw new Error('No article text was found on this page.');
         item.title = result.title || 'Untitled article';
         item.content = result.text.trim();

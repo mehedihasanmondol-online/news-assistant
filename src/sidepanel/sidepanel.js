@@ -1,4 +1,4 @@
-import { MESSAGE_TYPES, QUEUE_STATUS, DEFAULT_SETTINGS } from '../core/constants.js';
+import { MESSAGE_TYPES, QUEUE_STATUS, DEFAULT_SETTINGS, DEFAULT_ARTICLE_SETTINGS } from '../core/constants.js';
 
 // ===========================
 // DOM Element References
@@ -63,6 +63,13 @@ const el = {
   articleCurrentUrl: document.getElementById('articleCurrentUrl'),
   articleQueueList: document.getElementById('articleQueueList'),
   articleInputCard: document.getElementById('articleInputCard'),
+  articleSettingsToggle: document.getElementById('articleSettingsToggle'),
+  articleSettingsArrow: document.getElementById('articleSettingsArrow'),
+  articleSettingsBody: document.getElementById('articleSettingsBody'),
+  articleExcludeWords: document.getElementById('articleExcludeWords'),
+  skipLinkHeavy: document.getElementById('skipLinkHeavy'),
+  btnSaveArticleSettings: document.getElementById('btnSaveArticleSettings'),
+  articleSaveStatus: document.getElementById('articleSaveStatus'),
   articleControls: document.getElementById('articleControls'),
   articleSuccessScreen: document.getElementById('articleSuccessScreen'),
   articleSuccessSummary: document.getElementById('articleSuccessSummary'),
@@ -88,6 +95,7 @@ let activeArticleRunId = null;
 
 document.addEventListener('DOMContentLoaded', async () => {
   await loadSettings();
+  await loadArticleSettings();
   await refreshState();
 
   setupListeners();
@@ -144,6 +152,20 @@ function readSettings() {
   };
 }
 
+async function loadArticleSettings() {
+  const data = await chrome.storage.local.get('articleCopySettings');
+  const s = { ...DEFAULT_ARTICLE_SETTINGS, ...(data.articleCopySettings || {}) };
+  el.articleExcludeWords.value = s.excludedWords;
+  el.skipLinkHeavy.checked = s.skipLinkHeavy;
+}
+
+function readArticleSettings() {
+  return {
+    excludedWords: el.articleExcludeWords.value,
+    skipLinkHeavy: el.skipLinkHeavy.checked
+  };
+}
+
 // ===========================
 // Event Listeners
 // ===========================
@@ -175,6 +197,13 @@ function setupListeners() {
 
   // Start Again — reset to fresh state
   el.btnStartAgain.addEventListener('click', resetToStart);
+
+  // Article copy events
+  el.articleSettingsToggle.addEventListener('click', () => {
+    const hidden = el.articleSettingsBody.classList.toggle('hidden');
+    el.articleSettingsArrow.classList.toggle('open', !hidden);
+  });
+  el.btnSaveArticleSettings.addEventListener('click', saveArticleSettings);
 
   el.articleLinks.addEventListener('input', updateArticleLinkCount);
   el.btnPasteArticleLinks.addEventListener('click', pasteArticleLinksFromClipboard);
@@ -218,6 +247,13 @@ async function saveSettings() {
   if (result?.success) {
     setTimeout(() => { el.saveStatus.textContent = ''; }, 2500);
   }
+}
+
+async function saveArticleSettings() {
+  const settings = readArticleSettings();
+  await chrome.storage.local.set({ articleCopySettings: settings });
+  el.articleSaveStatus.textContent = 'Settings saved.';
+  setTimeout(() => { el.articleSaveStatus.textContent = ''; }, 2500);
 }
 
 function updateTitleCount() {
@@ -495,8 +531,9 @@ async function startArticleCopy() {
   if (!links.length) return showArticleNotice('Enter at least one valid http or https link.');
   if (links.length !== rawLinks.length) return showArticleNotice('Remove invalid links before starting.');
 
+  const options = readArticleSettings();
   const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  const result = await sendMessage(MESSAGE_TYPES.START_ARTICLE_COPY, { links, tabId: activeTab?.id });
+  const result = await sendMessage(MESSAGE_TYPES.START_ARTICLE_COPY, { links, tabId: activeTab?.id, options });
   if (!result?.success) showArticleNotice(result?.error || 'Could not start copying.');
   else {
     expandedArticleIndexes.clear();

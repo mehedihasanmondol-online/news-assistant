@@ -251,6 +251,32 @@
           <div class="char-hint" id="articleLinkCount">0 links</div>
           <button id="btnPasteArticleLinks" class="btn btn-paste" type="button"><span>📋</span> Paste links from clipboard</button>
         </section>
+        <section class="card" id="articleSettingsSection">
+          <div class="card-header collapsible" id="articleSettingsToggle">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span class="card-icon">⚙️</span>
+              <h2>Exclusion settings</h2>
+            </div>
+            <span class="collapse-arrow" id="articleSettingsArrow">▼</span>
+          </div>
+          <div class="settings-body" id="articleSettingsBody">
+            <div class="settings-grid">
+              <div class="setting-row setting-row-stack">
+                <label for="articleExcludeWords">Exclude paragraphs starting with (one per line):</label>
+                <textarea id="articleExcludeWords" rows="5" placeholder="READ MORE&#10;Also read&#10;Follow us&#10;Sign up"></textarea>
+                <span class="setting-hint" style="margin-top:4px;">Any paragraph or heading starting with these words or phrases will be skipped.</span>
+              </div>
+              <div class="setting-row" style="margin-top:4px;">
+                <label class="checkbox-label" for="skipLinkHeavy">
+                  <input type="checkbox" id="skipLinkHeavy" checked>
+                  Skip promotional / link-heavy paragraphs
+                </label>
+              </div>
+            </div>
+            <button id="btnSaveArticleSettings" class="btn btn-secondary" type="button" style="margin-top:10px;">Save settings</button>
+            <span class="save-status" id="articleSaveStatus" aria-live="polite"></span>
+          </div>
+        </section>
         <section class="article-controls" id="articleControls">
           <button id="btnStartArticleCopy" class="btn btn-primary" type="button"><span class="btn-icon">▶</span> Start copying</button>
           <button id="btnStopArticleCopy" class="btn btn-danger" type="button" disabled><span class="btn-icon">■</span> Stop</button>
