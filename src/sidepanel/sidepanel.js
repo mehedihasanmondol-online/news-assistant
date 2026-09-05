@@ -794,19 +794,16 @@ function resetArticleCopy() {
   expandedArticleIndexes.clear();
   articleResultScrollTops.clear();
   articleSuccessDismissed = true;
-  articleRestoredWithData = false; // After manual reset, hide queue on next dismiss
+  articleRestoredWithData = true;  // Keep existing saved data visible in the queue
   articleCopyStarting = false;
-  articleCopyWasRunning = false;
+  articleCopyWasRunning = true;    // Keep queue visible since data is still saved
   activeArticleRunId = null;
   el.articleSuccessScreen.hidden = true;
   el.articleInputCard.hidden = false;
   el.articleControls.hidden = false;
   el.articleControls.classList.remove('is-copying');
-  el.articleProgressBar.closest('.article-progress-card').hidden = false;
-  el.articleQueueList.closest('.article-queue-card').hidden = false;
   el.articleLinks.value = '';
   updateArticleLinkCount();
-  el.articleQueueList.innerHTML = '';
   el.articleStatus.textContent = 'Ready to copy';
   el.articleProgress.textContent = '0 / 0';
   el.articleProgressBar.style.width = '0%';
