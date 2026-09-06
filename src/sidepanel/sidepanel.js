@@ -78,11 +78,13 @@ const el = {
   articleSuccessCopied: document.getElementById('articleSuccessCopied'),
   articleSuccessFailed: document.getElementById('articleSuccessFailed'),
   articleSuccessWords: document.getElementById('articleSuccessWords'),
+  articleSuccessChars: document.getElementById('articleSuccessChars'),
   btnCopyAllHeadings: document.getElementById('btnCopyAllHeadings'),
   btnCopySuccessResults: document.getElementById('btnCopySuccessResults'),
   btnArticleStartAgain: document.getElementById('btnArticleStartAgain'),
   btnClearArticleCopy: document.getElementById('btnClearArticleCopy'),
   btnClearArticleQueue: document.getElementById('btnClearArticleQueue'),
+  articleQueueTotalChars: document.getElementById('articleQueueTotalChars'),
   autoDownloadImages: document.getElementById('autoDownloadImages'),
   articleControlsWrapper: document.getElementById('articleControlsWrapper'),
   testMode: document.getElementById('testMode'),
@@ -637,7 +639,8 @@ function renderArticleCopyState(state) {
     el.articleQueueList.closest('.article-queue-card').hidden = false;
     el.articleSuccessCopied.textContent = copied.length;
     el.articleSuccessFailed.textContent = failed.length;
-    el.articleSuccessWords.textContent = copied.reduce((sum, item) => sum + (item.words || 0), 0);
+    el.articleSuccessWords.textContent = copied.reduce((sum, item) => sum + (item.words || 0), 0).toLocaleString();
+    el.articleSuccessChars.textContent = fmtChars(copied.reduce((sum, item) => sum + (item.chars || 0), 0));
     el.articleSuccessSummary.textContent = `${copied.length} article${copied.length === 1 ? '' : 's'} ready. Copy everything at once, or start another batch.`;
 
 
@@ -681,7 +684,7 @@ function renderArticleCopyState(state) {
   el.articleQueueList.innerHTML = queue.map((item, index) => {
     const cls = index === state.currentIndex ? 'is-active' : `is-${item.status}`;
     const label = item.title || item.url;
-    const meta = item.status === 'copied' ? `${item.words} words copied` : (item.error || item.status);
+    const meta = item.status === 'copied' ? `${item.words} words · ${fmtChars(item.chars || 0)} chars` : (item.error || item.status);
     if (item.status !== 'copied') {
       return `<div class="article-queue-item ${cls}"><span class="article-queue-icon">${articleIcon(item.status)}</span><div><div class="article-queue-title">${escHtml(label)}</div><div class="article-queue-meta">${escHtml(meta)}</div></div></div>`;
     }
@@ -692,13 +695,14 @@ function renderArticleCopyState(state) {
           <span class="article-result-number">${index + 1}.</span><span class="article-result-title">${escHtml(label)}</span><span class="article-result-toggle">⌄</span>
         </button>
         <div class="article-result-inline-actions">
+          <span class="article-char-badge">${item.words.toLocaleString()} words · ${fmtChars(item.chars || 0)} chars</span>
           <button class="result-action" type="button" data-copy-title="${index}">Copy heading</button>
           <button class="result-action result-action-primary" type="button" data-copy-post="${index}">Copy post</button>
         </div>
       </div>
       <div class="article-result-body" ${expanded ? '' : 'hidden'}>
         <div class="article-result-text">${escHtml(item.content)}</div>
-        <div class="article-result-footer"><span>${item.words} words</span></div>
+        <div class="article-result-footer"><span>${item.words} words</span><span class="article-result-chars">${fmtChars(item.chars || 0)} chars</span></div>
       </div>
     </article>`;
   }).join('');
@@ -707,6 +711,14 @@ function renderArticleCopyState(state) {
     const savedTop = articleResultScrollTops.get(Number(card.dataset.resultIndex));
     if (textBox && savedTop !== undefined) textBox.scrollTop = savedTop;
   });
+  // Update total chars counter in queue header
+  const totalChars = copied.reduce((sum, item) => sum + (item.chars || 0), 0);
+  if (totalChars > 0) {
+    el.articleQueueTotalChars.textContent = `Total: ${fmtChars(totalChars)} chars`;
+    el.articleQueueTotalChars.hidden = false;
+  } else {
+    el.articleQueueTotalChars.hidden = true;
+  }
 }
 
 function articleStatusText(status, queue) {
@@ -840,6 +852,12 @@ function formatStatus(status, downloaded, perTitle) {
 function escHtml(str) {
   if (!str) return '';
   return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+/** Format character count compactly: 1234 → "1.2K", 12345 → "12K" */
+function fmtChars(n) {
+  if (n >= 1000) return (n / 1000).toFixed(n >= 10000 ? 0 : 1).replace(/\.0$/, '') + 'K';
+  return String(n);
 }
 
 function showAlert(msg) {

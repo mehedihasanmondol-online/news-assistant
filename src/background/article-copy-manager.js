@@ -55,7 +55,7 @@ export class ArticleCopyManager {
     this.runId += 1;
     this.reset();
     this.tabId = tabId;
-    this.state.queue = links.map((url) => ({ url, status: 'pending', title: '', content: '', words: 0, error: '' }));
+    this.state.queue = links.map((url) => ({ url, status: 'pending', title: '', content: '', words: 0, chars: 0, error: '' }));
     this.state.status = 'copying';
     this.saveState();
 
@@ -79,6 +79,7 @@ export class ArticleCopyManager {
         item.title = result.title || 'Untitled article';
         item.content = result.text.trim();
         item.words = result.text.trim().split(/\s+/).filter(Boolean).length;
+        item.chars = result.text.trim().length;
         item.status = 'copied';
         this.state.copiedText += `${this.state.copiedText ? '\n\n' : ''}${result.text.trim()}`;
       } catch (error) {

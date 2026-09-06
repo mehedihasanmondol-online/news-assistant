@@ -316,6 +316,7 @@
             <div><strong id="articleSuccessCopied">0</strong><span>Copied</span></div>
             <div><strong id="articleSuccessFailed">0</strong><span>Skipped</span></div>
             <div><strong id="articleSuccessWords">0</strong><span>Words</span></div>
+            <div><strong id="articleSuccessChars">0</strong><span>Characters</span></div>
           </div>
           <div class="article-success-actions">
             <button id="btnCopyAllHeadings" class="btn btn-secondary" type="button">📝 Copy all headings</button>
@@ -329,6 +330,7 @@
             <div style="display:flex;align-items:center;gap:8px;">
               <span class="card-icon">🗂</span><h2>Article queue</h2>
             </div>
+            <span id="articleQueueTotalChars" class="queue-total-chars" hidden></span>
             <button id="btnClearArticleQueue" class="btn btn-danger" type="button" style="padding:4px 8px; font-size:10px; width:auto; margin:0; height:auto; min-width:0; min-height:0;" title="Clear saved data">Clear</button>
           </div>
           <div id="articleQueueList" class="article-queue-list"></div>
