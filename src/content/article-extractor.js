@@ -51,7 +51,7 @@
   const EXCLUDED = [EXCLUDED_BASE, EXCLUDED_ADS, EXCLUDED_NOISE].join(', ');
 
   const CANDIDATES = [
-    ['article, [itemprop="articleBody"], .article-body, .post-content, .entry-content, .story-body', 1.5],
+    ['article, [itemprop="articleBody"], .article-body, .post-content, .entry-content, .story-body, .main__article, .article__body, .article-content, .post-body', 1.5],
     ['[role="main"] article', 1.4],
     ['main, [role="main"]', 0.65]
   ];
@@ -103,36 +103,63 @@
 
   function textLength(node) { return (node.innerText || '').trim().length; }
 
-  function findTrueContentRoot(root) {
-    let current = root;
-    while (true) {
-      const children = Array.from(current.children).filter(c => !c.closest(EXCLUDED));
-      if (children.length === 0) break;
-      
-      const totalText = textLength(current);
-      if (totalText === 0) break;
-
-      // Find if any single layout child holds > 85% of text
-      const dominantChild = children.find(c => 
-        ['DIV', 'SECTION', 'ARTICLE', 'MAIN'].includes(c.tagName) && 
-        (textLength(c) / totalText) > 0.85
-      );
-      
-      if (dominantChild) {
-        current = dominantChild;
-      } else {
-        break;
-      }
+  /**
+   * Returns how many wrapper elements sit between `node` and `root`.
+   * e.g. node.parent === root → depth 1
+   *      node.parent.parent === root → depth 2
+   * Returns Infinity if `node` is not a descendant of `root`.
+   */
+  function getAncestorDepth(node, root) {
+    let depth = 0;
+    let current = node.parentElement;
+    while (current && current !== root) {
+      depth++;
+      current = current.parentElement;
     }
-    return current;
+    return current === root ? depth + 1 : Infinity;
   }
 
-  function isDirectContent(node, root, trueRoot) {
-    // If it's an immediate child of the drilled-down true root or the original root
-    if (node.parentElement === trueRoot || node.parentElement === root) return true;
-    // Allow headings if they are inside a <header> which is a direct child of root
-    if (/^H[1-6]$/.test(node.tagName) && node.parentElement.tagName === 'HEADER' && node.parentElement.parentElement === root) return true;
-    return false;
+  /**
+   * Detects the natural content depth of the article by sampling visible
+   * content nodes and seeing which depth level holds the majority (≥50%).
+   * Returns 1, 2, or 3 as the resolved policy depth.
+   */
+  function detectContentDepth(root) {
+    const candidates = [...root.querySelectorAll('h2, h3, h4, p')]
+      .filter(n => !n.closest(EXCLUDED) && isVisible(n))
+      .filter(n => (n.innerText || '').trim().length >= 25);
+
+    if (candidates.length === 0) return 3; // fallback — be permissive
+
+    const depths = candidates.map(n => getAncestorDepth(n, root));
+    const total = depths.length;
+
+    // Policy 1: majority are direct children (depth 1)
+    const atDepth1 = depths.filter(d => d === 1).length;
+    if (atDepth1 / total >= 0.5) return 1;
+
+    // Policy 2: majority are within 2 levels of nesting
+    const atDepth2 = depths.filter(d => d <= 2).length;
+    if (atDepth2 / total >= 0.5) return 2;
+
+    // Policy 3: fall back to 3 levels
+    return 3;
+  }
+
+  /**
+   * Returns true if `node` is within `maxDepth` ancestor levels of `root`,
+   * with no excluded elements in its ancestor chain.
+   */
+  function isWithinDepth(node, root, maxDepth) {
+    let depth = 0;
+    let current = node.parentElement;
+    while (current && current !== root) {
+      if (current.matches(EXCLUDED)) return false;
+      depth++;
+      if (depth >= maxDepth) return false;
+      current = current.parentElement;
+    }
+    return current === root;
   }
 
   function collectContent(root, options = {}) {
@@ -142,13 +169,15 @@
     const excludedPrefixes = (options.excludedWords || '').split('\n').map(w => w.trim().toLowerCase()).filter(Boolean);
     const skipLinkHeavy = options.skipLinkHeavy !== false; // default true
 
-    const trueRoot = findTrueContentRoot(root);
+    // Adaptively detect content depth: prefer depth-1 (direct children), fall
+    // back to depth-2, then depth-3, based on where the majority of content lives.
+    const maxDepth = detectContentDepth(root);
 
     for (const node of root.querySelectorAll('h1, h2, h3, h4, p')) {
       if (node.closest(EXCLUDED) || !isVisible(node)) continue;
-      
-      // Strict depth check: ignore deeply nested elements (like in sidebars, widgets)
-      if (!isDirectContent(node, root, trueRoot)) continue;
+
+      // Depth-adaptive check: only accept nodes within the detected depth policy
+      if (!isWithinDepth(node, root, maxDepth)) continue;
 
       if (skipLinkHeavy && isLinkHeavy(node)) continue;
       const value = (node.innerText || '').replace(/\s+/g, ' ').trim();
