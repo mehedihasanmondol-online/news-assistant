@@ -78,11 +78,47 @@
     if (request.action !== 'ARTICLE_CONTENT_EXTRACTED') return;
     (async () => {
       try {
-        const root = findArticleRoot();
-        const { text, nodes } = collectContent(root, request.options);
+        let text, nodes, title;
+        let useDynamicPolicy = false;
+        let root = null;
+        let extraction = null;
+
+        // Attempt 1: Legacy Rules
+        try {
+          root = findArticleRoot();
+          extraction = collectContent(root, request.options);
+        } catch (e) {
+          // If legacy extraction fails to find a root or content, we flag it for fallback
+          useDynamicPolicy = true;
+        }
+
+        // Check if the legacy output meets our criteria (e.g., actually found paragraphs)
+        if (!useDynamicPolicy && extraction && extraction.nodes) {
+          const hasParagraphs = extraction.nodes.some(n => n.tagName === 'P');
+          if (!hasParagraphs) {
+            useDynamicPolicy = true;
+          }
+        }
+
+        if (useDynamicPolicy) {
+          // Attempt 2: Dynamic Density Policy
+          const dynamicRoot = findDynamicRoot();
+          const dynamicExtraction = collectDynamicContent(dynamicRoot, request.options);
+          
+          text = dynamicExtraction.text;
+          nodes = dynamicExtraction.nodes;
+          // For dynamic root, the title might sit outside the root, so ensure a broader fallback
+          title = getArticleTitle(dynamicRoot) || document.querySelector('h1')?.innerText || document.querySelector('h2.title, h2[class*="title"]')?.innerText || document.title;
+          title = title.replace(/\s+/g, ' ').trim();
+        } else {
+          text = extraction.text;
+          nodes = extraction.nodes;
+          title = getArticleTitle(root) || document.title;
+        }
+
         await showCopiedSequence(nodes, request.options);
         showSuccessUI(nodes.length);
-        sendResponse({ title: getArticleTitle(root) || document.title, text });
+        sendResponse({ title, text });
       } catch (error) {
         sendResponse({ error: error.message });
       }
@@ -183,6 +219,63 @@
       const value = (node.innerText || '').replace(/\s+/g, ' ').trim();
       const isHeading = /^H[1-4]$/.test(node.tagName);
       if ((isHeading ? value.length < 5 : value.length < 25) || looksLikeNoise(value, excludedPrefixes, isHeading) || seen.has(value)) continue;
+      seen.add(value);
+      parts.push(value);
+      nodes.push(node);
+    }
+    if (!parts.length) throw new Error('No readable headings or paragraphs were found.');
+    return { text: parts.join('\n\n'), nodes };
+  }
+
+  function findDynamicRoot() {
+    // Find all valid paragraphs across the entire document
+    const validParagraphs = [...document.querySelectorAll('p, h2, h3, h4')]
+      .filter(n => !n.closest(EXCLUDED) && isVisible(n) && textLength(n) >= 25);
+
+    if (validParagraphs.length === 0) {
+      throw new Error('No readable article area was found.');
+    }
+
+    let currentRoot = document.body;
+    let keepLooking = true;
+
+    while (keepLooking) {
+      keepLooking = false;
+      const children = Array.from(currentRoot.children);
+      
+      for (const child of children) {
+        // Count how many of our valid paragraphs are inside this specific child
+        const containedParagraphs = validParagraphs.filter(p => child.contains(p)).length;
+        
+        // If this child contains at least 70% of all the valid paragraphs on the page,
+        // it is safe to assume this child is still just a wrapper. Dive deeper!
+        if (containedParagraphs >= (validParagraphs.length * 0.70)) {
+          currentRoot = child;
+          keepLooking = true;
+          break; // restart the while loop from this new child
+        }
+      }
+    }
+
+    return currentRoot;
+  }
+
+  function collectDynamicContent(root, options = {}) {
+    const parts = [];
+    const nodes = [];
+    const seen = new Set();
+    const excludedPrefixes = (options.excludedWords || '').split('\n').map(w => w.trim().toLowerCase()).filter(Boolean);
+    const skipLinkHeavy = options.skipLinkHeavy !== false;
+
+    // No depth restrictions for dynamic policy
+    for (const node of root.querySelectorAll('h1, h2, h3, h4, p')) {
+      if (node.closest(EXCLUDED) || !isVisible(node)) continue;
+      if (skipLinkHeavy && isLinkHeavy(node)) continue;
+      
+      const value = (node.innerText || '').replace(/\s+/g, ' ').trim();
+      const isHeading = /^H[1-4]$/.test(node.tagName);
+      if ((isHeading ? value.length < 5 : value.length < 25) || looksLikeNoise(value, excludedPrefixes, isHeading) || seen.has(value)) continue;
+      
       seen.add(value);
       parts.push(value);
       nodes.push(node);
