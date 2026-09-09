@@ -11,9 +11,10 @@ export class DownloadManager {
    * @param {Object} candidate - The image candidate.
    * @param {string} title - The news title.
    * @param {number} index - The sequential index for the filename.
+   * @param {number} titleIndex - The 1-based serial number for the folder name.
    * @returns {Promise<boolean>} - True if successful.
    */
-  async downloadImage(candidate, title, index) {
+  async downloadImage(candidate, title, index, titleIndex) {
     const url = candidate.originalUrl || candidate.thumbnailUrl;
     if (!url) return false;
 
@@ -21,14 +22,16 @@ export class DownloadManager {
     const rootFolder = sanitizeFilename(settings.rootFolder);
     const sanitizedTitle = sanitizeFilename(title);
     const extension = getExtensionFromUrl(url);
-    
+    const folderPrefix = titleIndex != null ? `${String(titleIndex).padStart(2, '0')}. ` : '';
+    const folderName = `${folderPrefix}${sanitizedTitle}`;
+
     // Format: 01.jpg, 02.png
     const filename = `${index.toString().padStart(2, '0')}.${extension}`;
     // No root prefix lets Chrome use the browser's configured Downloads
     // location while still organizing files inside one folder per news title.
     const path = settings.saveToDownloadsRoot !== false
-      ? `${sanitizedTitle}/${filename}`
-      : `${rootFolder}/${sanitizedTitle}/${filename}`;
+      ? `${folderName}/${filename}`
+      : `${rootFolder}/${folderName}/${filename}`;
 
     return new Promise((resolve) => {
       chrome.downloads.download({

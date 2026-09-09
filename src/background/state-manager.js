@@ -34,13 +34,19 @@ export class StateManager {
   }
 
   initQueue(titles) {
-    this.state.queue = titles.map(title => ({
-      title: title.trim(),
-      status: QUEUE_STATUS.PENDING,
-      downloaded: 0,
-      failed: 0,
-      candidates: []
-    })).filter(item => item.title.length > 0);
+    this.state.queue = titles.map((item, index) => {
+      const isObj = typeof item === 'object' && item !== null;
+      const title = (isObj ? item.title : item) || '';
+      const serialNumber = isObj && item.serialNumber != null ? item.serialNumber : (index + 1);
+      return {
+        title: title.trim(),
+        serialNumber,
+        status: QUEUE_STATUS.PENDING,
+        downloaded: 0,
+        failed: 0,
+        candidates: []
+      };
+    }).filter(item => item.title.length > 0);
     
     // Deduplicate
     const uniqueTitles = new Set();

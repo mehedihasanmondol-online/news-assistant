@@ -109,7 +109,8 @@ export class QueueManager {
         }
 
         const candidate = filtered[candidateIndex];
-        const success = await this.downloadManager.downloadImage(candidate, item.title, downloadedCount + 1);
+        const serial = item.serialNumber != null ? item.serialNumber : (index + 1);
+        const success = await this.downloadManager.downloadImage(candidate, item.title, downloadedCount + 1, serial);
 
         if (success) {
           downloadedCount++;

@@ -245,12 +245,14 @@ function setupListeners() {
   el.btnArticleStartAgain.addEventListener('click', resetArticleCopy);
   el.btnClearArticleCopy.addEventListener('click', async () => {
     await sendMessage(MESSAGE_TYPES.CLEAR_ARTICLE_COPY);
+    newBatchStartIndex = 0;
     articleSuccessDismissed = false;
     articleCopyWasRunning = false;
     await refreshArticleCopyState();
   });
   el.btnClearArticleQueue.addEventListener('click', async () => {
     await sendMessage(MESSAGE_TYPES.CLEAR_ARTICLE_COPY);
+    newBatchStartIndex = 0;
     articleSuccessDismissed = false;
     articleCopyWasRunning = false;
     await refreshArticleCopyState();
@@ -335,12 +337,27 @@ function showInputCards() {
   el.settingsSection.style.display = '';
 }
 
-async function handleStart() {
-  const titles = el.titles.value.split('\n').filter(t => t.trim().length > 0);
+async function handleStart(customItems = null) {
+  let titles = Array.isArray(customItems) && customItems.length > 0 ? customItems : null;
 
-  if (titles.length === 0) {
-    showAlert('Please enter at least one news title.');
-    return;
+  if (!titles) {
+    const rawLines = el.titles.value.split('\n').map(t => t.trim()).filter(Boolean);
+    if (rawLines.length === 0) {
+      showAlert('Please enter at least one news title.');
+      return;
+    }
+
+    // Check if titles match articles in the article queue to preserve folder serial numbering
+    const articleState = await sendMessage(MESSAGE_TYPES.GET_ARTICLE_COPY_STATE);
+    const articleQueue = articleState?.queue || [];
+
+    titles = rawLines.map((line, lineIdx) => {
+      const foundIdx = articleQueue.findIndex(a => a.title && a.title.trim() === line);
+      if (foundIdx !== -1) {
+        return { title: line, serialNumber: foundIdx + 1 };
+      }
+      return { title: line, serialNumber: lineIdx + 1 };
+    });
   }
 
   // Save settings first
@@ -436,10 +453,11 @@ function renderQueue(queue, currentIndex, perTitle) {
     const cls = isActive ? 'is-active' : `is-${item.status}`;
     const meta = item.error ? `⚠ ${item.error}` : (item.status === QUEUE_STATUS.DOWNLOADING ? 'Downloading...' : '');
 
+    const serialPrefix = item.serialNumber != null ? `${String(item.serialNumber).padStart(2, '0')}. ` : '';
     return `<div class="queue-item ${cls}">
       <span class="qi-status">${statusIcon}</span>
       <div class="qi-body">
-        <div class="qi-title" title="${escHtml(item.title)}">${escHtml(item.title)}</div>
+        <div class="qi-title" title="${escHtml(item.title)}">${escHtml(serialPrefix + item.title)}</div>
         ${meta ? `<div class="qi-meta">${escHtml(meta)}</div>` : ''}
       </div>
       <span class="qi-count">${item.downloaded || 0}/${perTitle}</span>
@@ -575,6 +593,9 @@ async function startArticleCopy() {
   const currentState = await sendMessage(MESSAGE_TYPES.GET_ARTICLE_COPY_STATE);
   newBatchStartIndex = (currentState?.queue?.length) || 0;
 
+  // Block stale completed-state polls from triggering auto-download for this new run
+  activeArticleRunId = -1;
+
   const result = await sendMessage(MESSAGE_TYPES.START_ARTICLE_COPY, { links, tabId: activeTab?.id, options });
   if (!result?.success) showArticleNotice(result?.error || 'Could not start copying.');
   else {
@@ -652,17 +673,26 @@ function renderArticleCopyState(state) {
 
     if (el.autoDownloadImages.checked && autoImageTriggeredRunId !== state.runId) {
       autoImageTriggeredRunId = state.runId;
-      // Only download images for newly added articles, not previously existing ones
-      const newlyCopied = queue.slice(newBatchStartIndex).filter((item) => item.status === 'copied');
+      // Only download images for newly added articles, retaining their serial number from the article queue
+      const newlyCopied = [];
+      queue.forEach((item, index) => {
+        if (index >= newBatchStartIndex && item.status === 'copied' && item.title) {
+          newlyCopied.push({
+            title: item.title,
+            serialNumber: index + 1
+          });
+        }
+      });
+
       if (newlyCopied.length > 0) {
         // Switch tab
         switchTool('images');
         // Extract titles and fill input — only for the new batch
-        const titles = newlyCopied.map((item) => item.title).join('\n');
-        el.titles.value = titles;
+        const titlesText = newlyCopied.map((item) => item.title).join('\n');
+        el.titles.value = titlesText;
         updateTitleCount();
-        // Start download automatically
-        setTimeout(() => handleStart(), 300);
+        // Start download automatically with explicit serial numbers matching the article list
+        setTimeout(() => handleStart(newlyCopied), 300);
       }
     }
   } else if (isCopying) {
@@ -818,6 +848,7 @@ function resetArticleCopy() {
   articleCopyStarting = false;
   articleCopyWasRunning = true;    // Keep queue visible since data is still saved
   activeArticleRunId = null;
+  autoImageTriggeredRunId = null;  // Reset so auto-download can trigger again for next run
   el.articleSuccessScreen.hidden = true;
   el.articleInputCard.hidden = false;
   el.articleControls.hidden = false;
