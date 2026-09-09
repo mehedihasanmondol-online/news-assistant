@@ -53,9 +53,12 @@ export class ArticleCopyManager {
     if (this.state.status === 'copying') return;
     if (!tabId) throw new Error('No browser tab is available for opening the links.');
     this.runId += 1;
-    this.reset();
+    this.stopped = false;
     this.tabId = tabId;
-    this.state.queue = links.map((url) => ({ url, status: 'pending', title: '', content: '', words: 0, chars: 0, error: '' }));
+    this.state.runId = this.runId;
+
+    const newItems = links.map((url) => ({ url, status: 'pending', title: '', content: '', words: 0, chars: 0, error: '' }));
+    this.state.queue = (this.state.queue || []).concat(newItems);
     this.state.status = 'copying';
     this.saveState();
 
@@ -65,8 +68,11 @@ export class ArticleCopyManager {
 
   async _processQueue(options) {
     for (let index = 0; index < this.state.queue.length && !this.stopped; index += 1) {
-      this.state.currentIndex = index;
       const item = this.state.queue[index];
+      if (item.status === 'copied' || item.status === 'failed') {
+        continue;
+      }
+      this.state.currentIndex = index;
       item.status = 'loading';
       this.saveState();
       try {

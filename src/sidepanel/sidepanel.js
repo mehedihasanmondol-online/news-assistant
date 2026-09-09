@@ -106,6 +106,7 @@ let articleCopyWasRunning = false;
 let activeArticleRunId = null;
 let autoImageTriggeredRunId = null;
 let articleRestoredWithData = false; // True when browser reloads with existing saved posts — skips success screen but keeps queue visible
+let newBatchStartIndex = 0; // Queue index where the latest batch of new links starts
 
 document.addEventListener('DOMContentLoaded', async () => {
   await loadSettings();
@@ -569,6 +570,11 @@ async function startArticleCopy() {
 
   const options = readArticleSettings();
   const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+
+  // Remember the current queue size so auto-download only picks up new titles
+  const currentState = await sendMessage(MESSAGE_TYPES.GET_ARTICLE_COPY_STATE);
+  newBatchStartIndex = (currentState?.queue?.length) || 0;
+
   const result = await sendMessage(MESSAGE_TYPES.START_ARTICLE_COPY, { links, tabId: activeTab?.id, options });
   if (!result?.success) showArticleNotice(result?.error || 'Could not start copying.');
   else {
@@ -646,11 +652,13 @@ function renderArticleCopyState(state) {
 
     if (el.autoDownloadImages.checked && autoImageTriggeredRunId !== state.runId) {
       autoImageTriggeredRunId = state.runId;
-      if (copied.length > 0) {
+      // Only download images for newly added articles, not previously existing ones
+      const newlyCopied = queue.slice(newBatchStartIndex).filter((item) => item.status === 'copied');
+      if (newlyCopied.length > 0) {
         // Switch tab
         switchTool('images');
-        // Extract titles and fill input
-        const titles = copied.map((item) => item.title).join('\n');
+        // Extract titles and fill input — only for the new batch
+        const titles = newlyCopied.map((item) => item.title).join('\n');
         el.titles.value = titles;
         updateTitleCount();
         // Start download automatically
