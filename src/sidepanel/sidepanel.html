@@ -321,6 +321,7 @@
           <div class="article-success-actions">
             <button id="btnCopyAllHeadings" class="btn btn-secondary" type="button">📝 Copy all headings</button>
             <button id="btnCopySuccessResults" class="btn btn-primary" type="button">📋 Copy all posts</button>
+            <button id="btnResetCopyStatusSuccess" class="btn btn-warning" type="button" title="Reset all copied marks">🔄 Reset marks</button>
             <button id="btnClearArticleCopy" class="btn btn-danger" type="button">🗑️ Clear</button>
           </div>
           <button id="btnArticleStartAgain" class="btn btn-secondary" type="button">↩ Copy more articles</button>
@@ -330,8 +331,11 @@
             <div style="display:flex;align-items:center;gap:8px;">
               <span class="card-icon">🗂</span><h2>Article queue</h2>
             </div>
-            <span id="articleQueueTotalChars" class="queue-total-chars" hidden></span>
-            <button id="btnClearArticleQueue" class="btn btn-danger" type="button" style="padding:4px 8px; font-size:10px; width:auto; margin:0; height:auto; min-width:0; min-height:0;" title="Clear saved data">Clear</button>
+            <div style="display:flex;align-items:center;gap:6px;">
+              <span id="articleQueueTotalChars" class="queue-total-chars" hidden></span>
+              <button id="btnResetCopyStatusQueue" class="btn btn-warning" type="button" style="padding:4px 8px; font-size:10px; width:auto; margin:0; height:auto; min-width:0; min-height:0;" title="Reset all copied marks">Reset marks</button>
+              <button id="btnClearArticleQueue" class="btn btn-danger" type="button" style="padding:4px 8px; font-size:10px; width:auto; margin:0; height:auto; min-width:0; min-height:0;" title="Clear saved data">Clear</button>
+            </div>
           </div>
           <div id="articleQueueList" class="article-queue-list"></div>
         </section>

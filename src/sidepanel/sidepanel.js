@@ -84,6 +84,8 @@ const el = {
   btnArticleStartAgain: document.getElementById('btnArticleStartAgain'),
   btnClearArticleCopy: document.getElementById('btnClearArticleCopy'),
   btnClearArticleQueue: document.getElementById('btnClearArticleQueue'),
+  btnResetCopyStatusSuccess: document.getElementById('btnResetCopyStatusSuccess'),
+  btnResetCopyStatusQueue: document.getElementById('btnResetCopyStatusQueue'),
   articleQueueTotalChars: document.getElementById('articleQueueTotalChars'),
   autoDownloadImages: document.getElementById('autoDownloadImages'),
   articleControlsWrapper: document.getElementById('articleControlsWrapper'),
@@ -105,6 +107,7 @@ let articleCopyStarting = false;
 let articleCopyWasRunning = false;
 let activeArticleRunId = null;
 let autoImageTriggeredRunId = null;
+let articleRestoredWithData = false; // True when browser reloads with existing saved posts — skips success screen but keeps queue visible
 let newBatchStartIndex = 0; // Queue index where the latest batch of new links starts
 const copiedPostIndexes = new Set();
 const copiedHeadingIndexes = new Set();
@@ -312,6 +315,26 @@ function setupListeners() {
   };
   el.btnClearArticleCopy.addEventListener('click', handleClearArticleCopy);
   el.btnClearArticleQueue.addEventListener('click', handleClearArticleCopy);
+
+  const handleResetCopyStatus = async (event) => {
+    const button = event?.currentTarget;
+    const originalText = button?.innerHTML || '';
+
+    await clearCopiedMarks();
+    const state = await sendMessage(MESSAGE_TYPES.GET_ARTICLE_COPY_STATE);
+    if (state) {
+      renderArticleCopyState(state);
+    }
+
+    if (button) {
+      button.textContent = 'Reset ✓';
+      setTimeout(() => {
+        button.innerHTML = originalText;
+      }, 1200);
+    }
+  };
+  el.btnResetCopyStatusSuccess?.addEventListener('click', handleResetCopyStatus);
+  el.btnResetCopyStatusQueue?.addEventListener('click', handleResetCopyStatus);
   updateArticleLinkCount();
 }
 

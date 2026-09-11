@@ -302,9 +302,8 @@ body {
 .article-success-stats strong, .article-success-stats span { display: block; }
 .article-success-stats strong { color: var(--success); font-size: 19px; }
 .article-success-stats span { margin-top: 3px; color: var(--text-muted); font-size: 10px; }
-.article-success-screen .btn { width: 100%; margin: 0 0 8px; }
-.article-success-actions { display: flex; gap: 6px; width: 100%; margin-bottom: 8px; }
-.article-success-actions .btn { flex: 1; margin: 0; min-width: 0; font-size: 11px; padding: 9px 4px; }
+.article-success-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; width: 100%; margin-bottom: 8px; }
+.article-success-actions .btn { width: 100%; margin: 0; min-width: 0; font-size: 11px; padding: 9px 6px; }
 
 
 /* ===== Cards ===== */
