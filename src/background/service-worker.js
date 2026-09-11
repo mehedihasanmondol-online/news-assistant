@@ -64,12 +64,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         break;
 
       case MESSAGE_TYPES.STOP_ARTICLE_COPY:
-        articleCopyManager.stop();
+        await articleCopyManager.stop();
         sendResponse({ success: true });
         break;
 
       case MESSAGE_TYPES.CLEAR_ARTICLE_COPY:
-        articleCopyManager.fullReset();
+        await articleCopyManager.fullReset();
         sendResponse({ success: true });
         break;
 

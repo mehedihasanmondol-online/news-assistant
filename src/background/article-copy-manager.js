@@ -27,20 +27,24 @@ export class ArticleCopyManager {
     }
   }
 
-  saveState() {
-    chrome.storage.local.set({ articleCopyState: this.state }).catch(e => console.warn('Failed to save article copy state:', e));
+  async saveState() {
+    try {
+      await chrome.storage.local.set({ articleCopyState: this.state });
+    } catch (e) {
+      console.warn('Failed to save article copy state:', e);
+    }
   }
 
-  reset() {
+  async reset() {
     this.state = { runId: this.runId, status: 'idle', queue: [], currentIndex: -1, copiedText: '', error: '' };
     this.stopped = false;
-    this.saveState();
+    await this.saveState();
   }
 
   async fullReset() {
     await this.initPromise;
     this.runId = 0;
-    this.reset();
+    await this.reset();
   }
 
   async getState() {

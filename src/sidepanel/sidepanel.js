@@ -243,20 +243,37 @@ function setupListeners() {
   el.btnCopyAllHeadings.addEventListener('click', copyAllHeadings);
   el.btnCopySuccessResults.addEventListener('click', copyArticleResults);
   el.btnArticleStartAgain.addEventListener('click', resetArticleCopy);
-  el.btnClearArticleCopy.addEventListener('click', async () => {
+  const handleClearArticleCopy = async () => {
     await sendMessage(MESSAGE_TYPES.CLEAR_ARTICLE_COPY);
     newBatchStartIndex = 0;
-    articleSuccessDismissed = false;
+    activeArticleRunId = null;
+    autoImageTriggeredRunId = null;
+    articleSuccessDismissed = true;
     articleCopyWasRunning = false;
+    articleRestoredWithData = false;
+    expandedArticleIndexes.clear();
+    articleResultScrollTops.clear();
+
+    // Immediately reflect cleared state in UI
+    el.articleSuccessScreen.hidden = true;
+    el.articleInputCard.hidden = false;
+    el.articleSettingsSection.hidden = false;
+    el.articleControlsWrapper.hidden = false;
+    el.articleControls.classList.remove('is-copying');
+    el.articleProgressBar.closest('.article-progress-card').hidden = true;
+    el.articleQueueList.closest('.article-queue-card').hidden = true;
+    el.articleQueueList.innerHTML = '';
+    el.btnCopyResults.disabled = true;
+    el.btnCopyAllHeadingsMain.disabled = true;
+    el.articleStatus.textContent = 'Ready to copy';
+    el.articleProgress.textContent = '0 / 0';
+    el.articleProgressBar.style.width = '0%';
+    el.articleCurrentUrl.textContent = 'The source page will scroll to the highlighted article area while it is being copied.';
+
     await refreshArticleCopyState();
-  });
-  el.btnClearArticleQueue.addEventListener('click', async () => {
-    await sendMessage(MESSAGE_TYPES.CLEAR_ARTICLE_COPY);
-    newBatchStartIndex = 0;
-    articleSuccessDismissed = false;
-    articleCopyWasRunning = false;
-    await refreshArticleCopyState();
-  });
+  };
+  el.btnClearArticleCopy.addEventListener('click', handleClearArticleCopy);
+  el.btnClearArticleQueue.addEventListener('click', handleClearArticleCopy);
   updateArticleLinkCount();
 }
 
@@ -632,11 +649,16 @@ async function refreshArticleCopyState() {
 }
 
 function renderArticleCopyState(state) {
+  const queue = state.queue || [];
+
+  // When queue is cleared or idle, clear activeArticleRunId so the cleared UI renders immediately
+  if (queue.length === 0 || state.status === 'idle') {
+    activeArticleRunId = null;
+  }
+
   // A GET_STATE response can arrive after START_ARTICLE_COPY. Ignore that
   // stale completed batch rather than showing its success screen mid-run.
   if (activeArticleRunId !== null && state.runId !== activeArticleRunId) return;
-
-  const queue = state.queue || [];
   const active = queue[state.currentIndex];
   const completed = queue.filter((item) => item.status === 'copied' || item.status === 'failed').length;
 
