@@ -105,12 +105,49 @@ let articleCopyStarting = false;
 let articleCopyWasRunning = false;
 let activeArticleRunId = null;
 let autoImageTriggeredRunId = null;
-let articleRestoredWithData = false; // True when browser reloads with existing saved posts — skips success screen but keeps queue visible
 let newBatchStartIndex = 0; // Queue index where the latest batch of new links starts
+const copiedPostIndexes = new Set();
+const copiedHeadingIndexes = new Set();
+
+async function loadCopiedMarks() {
+  try {
+    const data = await chrome.storage.local.get(['copiedPostIndexes', 'copiedHeadingIndexes']);
+    if (Array.isArray(data.copiedPostIndexes)) {
+      data.copiedPostIndexes.forEach(i => copiedPostIndexes.add(i));
+    }
+    if (Array.isArray(data.copiedHeadingIndexes)) {
+      data.copiedHeadingIndexes.forEach(i => copiedHeadingIndexes.add(i));
+    }
+  } catch (e) {
+    console.warn('Failed to load copied marks:', e);
+  }
+}
+
+async function saveCopiedMarks() {
+  try {
+    await chrome.storage.local.set({
+      copiedPostIndexes: Array.from(copiedPostIndexes),
+      copiedHeadingIndexes: Array.from(copiedHeadingIndexes)
+    });
+  } catch (e) {
+    console.warn('Failed to save copied marks:', e);
+  }
+}
+
+async function clearCopiedMarks() {
+  copiedPostIndexes.clear();
+  copiedHeadingIndexes.clear();
+  try {
+    await chrome.storage.local.remove(['copiedPostIndexes', 'copiedHeadingIndexes']);
+  } catch (e) {
+    console.warn('Failed to clear copied marks:', e);
+  }
+}
 
 document.addEventListener('DOMContentLoaded', async () => {
   await loadSettings();
   await loadArticleSettings();
+  await loadCopiedMarks();
   await refreshState();
 
   setupListeners();
@@ -253,6 +290,7 @@ function setupListeners() {
     articleRestoredWithData = false;
     expandedArticleIndexes.clear();
     articleResultScrollTops.clear();
+    await clearCopiedMarks();
 
     // Immediately reflect cleared state in UI
     el.articleSuccessScreen.hidden = true;
@@ -609,6 +647,9 @@ async function startArticleCopy() {
   // Remember the current queue size so auto-download only picks up new titles
   const currentState = await sendMessage(MESSAGE_TYPES.GET_ARTICLE_COPY_STATE);
   newBatchStartIndex = (currentState?.queue?.length) || 0;
+  if (newBatchStartIndex === 0) {
+    await clearCopiedMarks();
+  }
 
   // Block stale completed-state polls from triggering auto-download for this new run
   activeArticleRunId = -1;
@@ -749,15 +790,30 @@ function renderArticleCopyState(state) {
       return `<div class="article-queue-item ${cls}"><span class="article-queue-icon">${articleIcon(item.status)}</span><div><div class="article-queue-title">${escHtml(label)}</div><div class="article-queue-meta">${escHtml(meta)}</div></div></div>`;
     }
     const expanded = expandedArticleIndexes.has(index);
-    return `<article class="article-result ${expanded ? 'is-expanded' : ''}" data-result-index="${index}">
+    const isHeadingCopied = copiedHeadingIndexes.has(index);
+    const isPostCopied = copiedPostIndexes.has(index);
+
+    let cardClasses = `article-result ${expanded ? 'is-expanded' : ''}`;
+    if (isPostCopied) cardClasses += ' is-post-copied';
+    if (isHeadingCopied) cardClasses += ' is-heading-copied';
+
+    const titleBtnClass = isHeadingCopied ? 'result-action result-action-heading-copied' : 'result-action';
+    const titleBtnText = isHeadingCopied ? '✓ Heading copied' : 'Copy heading';
+
+    const postBtnClass = isPostCopied ? 'result-action result-action-post-copied' : 'result-action result-action-primary';
+    const postBtnText = isPostCopied ? '✓ Post copied' : 'Copy post';
+
+    return `<article class="${cardClasses}" data-result-index="${index}">
       <div class="article-result-head-row">
         <button type="button" class="article-result-head" data-result-toggle="${index}" aria-expanded="${expanded}">
           <span class="article-result-number">${index + 1}.</span><span class="article-result-title">${escHtml(label)}</span><span class="article-result-toggle">⌄</span>
         </button>
         <div class="article-result-inline-actions">
           <span class="article-char-badge">${item.words.toLocaleString()} words · ${fmtChars(item.chars || 0)} chars</span>
-          <button class="result-action" type="button" data-copy-title="${index}">Copy heading</button>
-          <button class="result-action result-action-primary" type="button" data-copy-post="${index}">Copy post</button>
+          ${isHeadingCopied ? '<span class="copied-pill copied-pill-heading">✓ Heading</span>' : ''}
+          ${isPostCopied ? '<span class="copied-pill copied-pill-post">✓ Post</span>' : ''}
+          <button class="${titleBtnClass}" type="button" data-copy-title="${index}">${titleBtnText}</button>
+          <button class="${postBtnClass}" type="button" data-copy-post="${index}">${postBtnText}</button>
         </div>
       </div>
       <div class="article-result-body" ${expanded ? '' : 'hidden'}>
@@ -800,8 +856,18 @@ async function copyArticleResults(event) {
 
   try {
     await navigator.clipboard.writeText(state.copiedText);
+
+    // Automatically mark all copied posts
+    (state.queue || []).forEach((item, index) => {
+      if (item.status === 'copied') {
+        copiedPostIndexes.add(index);
+      }
+    });
+    await saveCopiedMarks();
+    renderArticleCopyState(state);
+
     if (button) {
-      button.textContent = 'Copied to clipboard ✓';
+      button.textContent = 'All posts copied ✓';
       setTimeout(() => { button.innerHTML = originalHTML; }, 1800);
     }
   } catch (error) {
@@ -821,7 +887,17 @@ async function copyAllHeadings(event) {
   if (!headings) return;
   try {
     await navigator.clipboard.writeText(headings);
-    button.textContent = 'Copied to clipboard ✓';
+
+    // Automatically mark all copied headings
+    (state.queue || []).forEach((item, index) => {
+      if (item.status === 'copied' && item.title) {
+        copiedHeadingIndexes.add(index);
+      }
+    });
+    await saveCopiedMarks();
+    renderArticleCopyState(state);
+
+    button.textContent = 'All headings copied ✓';
     setTimeout(() => { button.innerHTML = originalHTML; }, 1800);
   } catch (error) {
     console.error('Clipboard write failed:', error);
@@ -846,16 +922,21 @@ async function handleArticleResultClick(event) {
 
   const button = event.target.closest('[data-copy-title], [data-copy-post]');
   if (!button) return;
-  const index = Number(button.dataset.copyTitle ?? button.dataset.copyPost);
+  const isHeading = button.dataset.copyTitle !== undefined;
+  const index = Number(isHeading ? button.dataset.copyTitle : button.dataset.copyPost);
   const state = await sendMessage(MESSAGE_TYPES.GET_ARTICLE_COPY_STATE);
   const item = state?.queue?.[index];
-  const text = button.dataset.copyTitle !== undefined ? item?.title : item?.content;
+  const text = isHeading ? item?.title : item?.content;
   if (!text) return;
   try {
     await navigator.clipboard.writeText(text);
-    const original = button.textContent;
-    button.textContent = 'Copied ✓';
-    setTimeout(() => { button.textContent = original; }, 1400);
+    if (isHeading) {
+      copiedHeadingIndexes.add(index);
+    } else {
+      copiedPostIndexes.add(index);
+    }
+    await saveCopiedMarks();
+    renderArticleCopyState(state);
   } catch {
     showArticleNotice('Clipboard access was blocked. Please try again.');
   }
