@@ -110,10 +110,16 @@
           // For dynamic root, the title might sit outside the root, so ensure a broader fallback
           title = getArticleTitle(dynamicRoot) || document.querySelector('h1')?.innerText || document.querySelector('h2.title, h2[class*="title"]')?.innerText || document.title;
           title = title.replace(/\s+/g, ' ').trim();
+          if (title && !text.startsWith(title)) {
+            text = title + '\n\n' + text;
+          }
         } else {
           text = extraction.text;
           nodes = extraction.nodes;
           title = getArticleTitle(root) || document.title;
+          if (title && !text.startsWith(title)) {
+            text = title + '\n\n' + text;
+          }
         }
 
         await showCopiedSequence(nodes, request.options);
