@@ -466,6 +466,7 @@ input[type="checkbox"] {
 
 input[type="number"],
 input[type="text"],
+input[type="date"],
 select {
   background: var(--bg-input);
   border: 1px solid var(--border);
@@ -476,6 +477,7 @@ select {
   padding: 5px 8px;
   outline: none;
   transition: border-color 0.2s, box-shadow 0.2s;
+  color-scheme: dark;
 }
 
 input[type="number"] {
@@ -502,6 +504,38 @@ select {
   display: grid;
   grid-template-columns: 1fr;
   align-items: start;
+}
+
+.custom-date-row {
+  margin-top: 4px;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.date-range-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  width: 100%;
+  margin-top: 4px;
+}
+
+.date-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.date-input-sublabel {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.date-input-group input[type="date"] {
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .setting-hint,

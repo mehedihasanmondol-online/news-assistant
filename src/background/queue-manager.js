@@ -145,11 +145,51 @@ export class QueueManager {
   }
 
   /**
+   * Formats a YYYY-MM-DD date string (from HTML5 date input) into M/D/YYYY for Google Search.
+   */
+  _formatGoogleDate(dateStr) {
+    if (!dateStr) return '';
+    const match = String(dateStr).trim().match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+    if (match) {
+      const year = match[1];
+      const month = parseInt(match[2], 10);
+      const day = parseInt(match[3], 10);
+      return `${month}/${day}/${year}`;
+    }
+    return dateStr;
+  }
+
+  /**
+   * Constructs Google Images search URL taking into account time range and custom date settings.
+   */
+  _buildSearchUrl(title) {
+    const settings = this.stateManager.getState().settings || {};
+    let tbsParam = '';
+
+    if (settings.timeRange && settings.timeRange !== 'any') {
+      if (settings.timeRange === 'custom') {
+        const minDate = this._formatGoogleDate(settings.customDateMin);
+        const maxDate = this._formatGoogleDate(settings.customDateMax);
+        const parts = ['cdr:1'];
+        if (minDate) parts.push(`cd_min:${minDate}`);
+        if (maxDate) parts.push(`cd_max:${maxDate}`);
+        if (parts.length > 1) {
+          tbsParam = `&tbs=${encodeURIComponent(parts.join(','))}`;
+        }
+      } else {
+        tbsParam = `&tbs=${encodeURIComponent(settings.timeRange)}`;
+      }
+    }
+
+    return `https://www.google.com/search?udm=2&tbm=isch&q=${encodeURIComponent(title)}&hl=en${tbsParam}`;
+  }
+
+  /**
    * Navigates the active (foreground) tab to Google Images and retrieves candidates.
    * The user can watch this happen live in their browser.
    */
   async searchGoogleImages(title) {
-    const url = `https://www.google.com/search?tbm=isch&q=${encodeURIComponent(title)}&hl=en`;
+    const url = this._buildSearchUrl(title);
 
     return new Promise(async (resolve, reject) => {
       try {

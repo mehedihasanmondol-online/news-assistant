@@ -95,6 +95,32 @@
                 </select>
                 <span class="setting-hint" id="aspectRatioHint">Closest matches are downloaded first.</span>
               </div>
+              <div class="setting-row setting-row-stack">
+                <label for="timeRange">Time filter (Date range)</label>
+                <select id="timeRange" aria-describedby="timeRangeHint">
+                  <option value="any">Any time (All)</option>
+                  <option value="qdr:d">Past 24 hours</option>
+                  <option value="qdr:w">Past week</option>
+                  <option value="qdr:m">Past month</option>
+                  <option value="qdr:y">Past year</option>
+                  <option value="custom">Custom range...</option>
+                </select>
+                <span class="setting-hint" id="timeRangeHint">Filter search results by upload or index time.</span>
+              </div>
+              <div class="setting-row setting-row-stack custom-date-row" id="customDateRow" style="display:none;">
+                <label>Custom Date Range</label>
+                <div class="date-range-grid">
+                  <div class="date-input-group">
+                    <span class="date-input-sublabel">From</span>
+                    <input type="date" id="customDateMin">
+                  </div>
+                  <div class="date-input-group">
+                    <span class="date-input-sublabel">To</span>
+                    <input type="date" id="customDateMax">
+                  </div>
+                </div>
+                <span class="setting-hint">Format: MM/DD/YYYY sent to Google Search.</span>
+              </div>
               <div class="setting-row">
                 <label class="checkbox-label" for="saveToDownloadsRoot">
                   <input type="checkbox" id="saveToDownloadsRoot" checked>

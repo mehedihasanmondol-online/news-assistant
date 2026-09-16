@@ -12,6 +12,10 @@ const el = {
   minWidth: document.getElementById('minWidth'),
   minAspectRatio: document.getElementById('minAspectRatio'),
   aspectRatio: document.getElementById('aspectRatio'),
+  timeRange: document.getElementById('timeRange'),
+  customDateRow: document.getElementById('customDateRow'),
+  customDateMin: document.getElementById('customDateMin'),
+  customDateMax: document.getElementById('customDateMax'),
   rootFolder: document.getElementById('rootFolder'),
   saveToDownloadsRoot: document.getElementById('saveToDownloadsRoot'),
   searchDelay: document.getElementById('searchDelay'),
@@ -189,10 +193,19 @@ async function loadSettings() {
   el.minWidth.value = s.minimumWidth;
   el.minAspectRatio.value = s.minimumAspectRatio;
   el.aspectRatio.value = s.preferredAspectRatio || '16:9';
+  el.timeRange.value = s.timeRange || 'any';
+  el.customDateMin.value = s.customDateMin || '';
+  el.customDateMax.value = s.customDateMax || '';
   el.rootFolder.value = s.rootFolder;
   el.saveToDownloadsRoot.checked = s.saveToDownloadsRoot !== false;
   el.searchDelay.value = s.delayBetweenSearchesMs || 3000;
+  updateTimeRangeUI();
   updateDownloadLocationUI();
+}
+
+function updateTimeRangeUI() {
+  const isCustom = el.timeRange.value === 'custom';
+  el.customDateRow.style.display = isCustom ? '' : 'none';
 }
 
 function readSettings() {
@@ -201,6 +214,9 @@ function readSettings() {
     minimumWidth: parseInt(el.minWidth.value, 10) || 1200,
     minimumAspectRatio: parseFloat(el.minAspectRatio.value) || 1.78,
     preferredAspectRatio: el.aspectRatio.value,
+    timeRange: el.timeRange.value || 'any',
+    customDateMin: el.customDateMin.value || '',
+    customDateMax: el.customDateMax.value || '',
     rootFolder: el.rootFolder.value.trim() || '',
     saveToDownloadsRoot: el.saveToDownloadsRoot.checked,
     delayBetweenSearchesMs: parseInt(el.searchDelay.value, 10) || 3000,
@@ -246,6 +262,7 @@ function setupListeners() {
   // Controls
   el.btnSaveSettings.addEventListener('click', saveSettings);
   el.aspectRatio.addEventListener('change', applyAspectRatioRecommendation);
+  el.timeRange.addEventListener('change', updateTimeRangeUI);
   el.saveToDownloadsRoot.addEventListener('change', updateDownloadLocationUI);
   el.btnStart.addEventListener('click', handleStart);
   el.btnPause.addEventListener('click', () => sendMessage(MESSAGE_TYPES.PAUSE_QUEUE));
