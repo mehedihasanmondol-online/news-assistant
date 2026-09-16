@@ -376,7 +376,7 @@
     if (excludedPrefixes.some(prefix => lowerValue.startsWith(prefix))) return true;
 
     // Known noise labels
-    if (/^(advertisement|advertise[sd]?|sponsored(?: content)?|promoted story|read more|related (stories?|articles?)|comments?|subscribe|sign up|sign in|log in|follow us|share this|click here|buy now|shop now|cookie|privacy policy|terms of use|newsletter|taboola|outbrain)$/i.test(value)) return true;
+    if (/^(advertisement|advertise[sd]?|sponsored(?: content)?|promoted story|read more|related (stories?|articles?)|(?:\d+[\s\w]*|no\s+|leave a\s+|view\s+|add a\s+|post a\s+)?comments?(?:\s*[:(]\s*\d+\s*\)?)?|subscribe|sign up|sign in|log in|follow us|share this|click here|buy now|shop now|cookie|privacy policy|terms of use|newsletter|taboola|outbrain)$/i.test(value)) return true;
     // Very short — likely a label, tag, or button text (skip this check for headings as they are often short)
     if (!isHeading && value.split(/\s+/).length < 4 && value.length < 40) return true;
     // Looks like a URL
