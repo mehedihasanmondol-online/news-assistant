@@ -63,52 +63,69 @@
           </div>
           <div class="settings-body" id="settingsBody">
             <div class="settings-grid">
-              <div class="setting-row">
-                <label for="imagesPerTitle">Images per title</label>
-                <div class="input-with-unit">
-                  <input type="number" id="imagesPerTitle" min="1" max="50" value="5">
-                  <span class="unit">images</span>
+              <!-- Row 1: Images count & Min width -->
+              <div class="settings-compact-row">
+                <div class="compact-field">
+                  <label for="imagesPerTitle">Images / title</label>
+                  <div class="input-with-unit">
+                    <input type="number" id="imagesPerTitle" min="1" max="50" value="5">
+                    <span class="unit">img</span>
+                  </div>
+                </div>
+                <div class="compact-field">
+                  <label for="minWidth">Min width</label>
+                  <div class="input-with-unit">
+                    <input type="number" id="minWidth" min="100" max="8000" value="1200">
+                    <span class="unit">px</span>
+                  </div>
                 </div>
               </div>
-              <div class="setting-row">
-                <label for="minWidth">Minimum width</label>
-                <div class="input-with-unit">
-                  <input type="number" id="minWidth" min="100" max="8000" value="1200">
-                  <span class="unit">px</span>
+
+              <!-- Row 2: Aspect ratio & Min ratio -->
+              <div class="settings-compact-row">
+                <div class="compact-field">
+                  <label for="aspectRatio">Aspect ratio</label>
+                  <select id="aspectRatio">
+                    <option value="16:9">16:9 — Wide</option>
+                    <option value="4:3">4:3 — Standard</option>
+                    <option value="1:1">1:1 — Square</option>
+                    <option value="3:4">3:4 — Portrait</option>
+                    <option value="9:16">9:16 — Vertical</option>
+                  </select>
+                </div>
+                <div class="compact-field">
+                  <label for="minAspectRatio">Min ratio</label>
+                  <div class="input-with-unit">
+                    <input type="number" id="minAspectRatio" step="0.1" min="0.5" max="5" value="1.4">
+                    <span class="unit">w/h</span>
+                  </div>
                 </div>
               </div>
-              <div class="setting-row">
-                <label for="minAspectRatio">Min aspect ratio</label>
-                <div class="input-with-unit">
-                  <input type="number" id="minAspectRatio" step="0.1" min="0.5" max="5" value="1.4">
-                  <span class="unit">w/h</span>
+
+              <!-- Row 3: Time filter & Search delay -->
+              <div class="settings-compact-row">
+                <div class="compact-field">
+                  <label for="timeRange">Time filter</label>
+                  <select id="timeRange">
+                    <option value="any">Any time</option>
+                    <option value="qdr:d">Past 24 hours</option>
+                    <option value="qdr:w">Past week</option>
+                    <option value="qdr:m">Past month</option>
+                    <option value="qdr:y">Past year</option>
+                    <option value="custom">Custom range...</option>
+                  </select>
+                </div>
+                <div class="compact-field">
+                  <label for="searchDelay">Delay</label>
+                  <div class="input-with-unit">
+                    <input type="number" id="searchDelay" min="1000" max="10000" step="500" value="3000">
+                    <span class="unit">ms</span>
+                  </div>
                 </div>
               </div>
-              <div class="setting-row setting-row-stack">
-                <label for="aspectRatio">Recommended aspect ratio</label>
-                <select id="aspectRatio" aria-describedby="aspectRatioHint">
-                  <option value="16:9">16:9 — Widescreen</option>
-                  <option value="4:3">4:3 — Standard</option>
-                  <option value="1:1">1:1 — Square</option>
-                  <option value="3:4">3:4 — Portrait</option>
-                  <option value="9:16">9:16 — Vertical</option>
-                </select>
-                <span class="setting-hint" id="aspectRatioHint">Closest matches are downloaded first.</span>
-              </div>
-              <div class="setting-row setting-row-stack">
-                <label for="timeRange">Time filter (Date range)</label>
-                <select id="timeRange" aria-describedby="timeRangeHint">
-                  <option value="any">Any time (All)</option>
-                  <option value="qdr:d">Past 24 hours</option>
-                  <option value="qdr:w">Past week</option>
-                  <option value="qdr:m">Past month</option>
-                  <option value="qdr:y">Past year</option>
-                  <option value="custom">Custom range...</option>
-                </select>
-                <span class="setting-hint" id="timeRangeHint">Filter search results by upload or index time.</span>
-              </div>
+
+              <!-- Custom Date Range (Conditionally shown) -->
               <div class="setting-row setting-row-stack custom-date-row" id="customDateRow" style="display:none;">
-                <label>Custom Date Range</label>
                 <div class="date-range-grid">
                   <div class="date-input-group">
                     <span class="date-input-sublabel">From</span>
@@ -119,28 +136,22 @@
                     <input type="date" id="customDateMax">
                   </div>
                 </div>
-                <span class="setting-hint">Format: MM/DD/YYYY sent to Google Search.</span>
               </div>
-              <div class="setting-row">
+
+              <!-- Download folder group -->
+              <div class="folder-setting-group">
                 <label class="checkbox-label" for="saveToDownloadsRoot">
                   <input type="checkbox" id="saveToDownloadsRoot" checked>
-                  Save title folders in browser Downloads
+                  Save directly in Downloads
                 </label>
-              </div>
-              <div class="setting-row">
-                <label for="rootFolder">Save folder</label>
-                <input type="text" id="rootFolder" value="News Images" style="width:100%;box-sizing:border-box;" aria-describedby="rootFolderHint">
-              </div>
-              <span class="setting-hint" id="rootFolderHint">Saves as Downloads/News Title/01.jpg without an extra root folder.</span>
-              <div class="setting-row">
-                <label for="searchDelay">Delay between searches</label>
-                <div class="input-with-unit">
-                  <input type="number" id="searchDelay" min="1000" max="10000" step="500" value="3000">
-                  <span class="unit">ms</span>
+                <div class="setting-row folder-input-row">
+                  <label for="rootFolder" style="font-size:11px;color:var(--text-muted);min-width:55px;">Subfolder</label>
+                  <input type="text" id="rootFolder" value="News Images" placeholder="News Images">
                 </div>
               </div>
             </div>
-            <button id="btnSaveSettings" class="btn btn-secondary" type="button">Save settings</button>
+
+            <button id="btnSaveSettings" class="btn btn-secondary btn-save-compact" type="button">Save settings</button>
             <span class="save-status" id="saveStatus" aria-live="polite"></span>
           </div>
         </section>

@@ -408,7 +408,7 @@ textarea:focus {
 
 /* ===== Settings ===== */
 .settings-body {
-  padding: 12px 14px;
+  padding: 8px 12px 10px;
   transition: all 0.3s;
 }
 
@@ -419,7 +419,79 @@ textarea:focus {
 .settings-grid {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 6px;
+}
+
+.settings-compact-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  align-items: end;
+}
+
+.compact-field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.compact-field label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-subtle);
+  white-space: nowrap;
+}
+
+.compact-field .input-with-unit {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.compact-field .input-with-unit input[type="number"] {
+  width: 100%;
+  flex: 1;
+  min-width: 0;
+  text-align: right;
+  padding: 4px 6px;
+  font-size: 11px;
+  height: 26px;
+  box-sizing: border-box;
+}
+
+.compact-field select {
+  font-size: 11px;
+  padding: 4px 6px;
+  height: 26px;
+  box-sizing: border-box;
+}
+
+.folder-setting-group {
+  margin-top: 2px;
+  padding: 6px 8px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.folder-input-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+}
+
+.folder-input-row input[type="text"] {
+  flex: 1;
+  min-width: 0;
+  font-size: 11px;
+  padding: 3px 6px;
+  height: 24px;
+  box-sizing: border-box;
 }
 
 .setting-row {
@@ -430,7 +502,7 @@ textarea:focus {
 }
 
 .setting-row label {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--text-subtle);
   flex: 1;
   white-space: nowrap;
@@ -439,8 +511,10 @@ textarea:focus {
 .checkbox-label {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   cursor: pointer;
+  font-size: 11px;
+  color: var(--text-subtle);
 }
 
 input[type="checkbox"] {
@@ -454,12 +528,12 @@ input[type="checkbox"] {
 .input-with-unit {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   flex-shrink: 0;
 }
 
 .unit {
-  font-size: 11px;
+  font-size: 10.5px;
   color: var(--text-muted);
   white-space: nowrap;
 }
@@ -473,15 +547,15 @@ select {
   border-radius: var(--radius-sm);
   color: var(--text);
   font-family: 'Inter', sans-serif;
-  font-size: 12px;
-  padding: 5px 8px;
+  font-size: 11px;
+  padding: 4px 6px;
   outline: none;
   transition: border-color 0.2s, box-shadow 0.2s;
   color-scheme: dark;
 }
 
 input[type="number"] {
-  width: 80px;
+  width: 70px;
   text-align: right;
 }
 
@@ -507,8 +581,8 @@ select {
 }
 
 .custom-date-row {
-  margin-top: 4px;
-  padding: 8px 10px;
+  margin-top: 2px;
+  padding: 6px 8px;
   background: rgba(255, 255, 255, 0.03);
   border: 1px dashed var(--border);
   border-radius: var(--radius-sm);
@@ -517,39 +591,49 @@ select {
 .date-range-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 8px;
+  gap: 6px;
   width: 100%;
-  margin-top: 4px;
 }
 
 .date-input-group {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 2px;
 }
 
 .date-input-sublabel {
-  font-size: 10px;
+  font-size: 9.5px;
   color: var(--text-muted);
 }
 
 .date-input-group input[type="date"] {
   width: 100%;
+  height: 24px;
+  font-size: 10.5px;
+  padding: 2px 4px;
   box-sizing: border-box;
 }
 
-.setting-hint,
-.save-status {
+.setting-hint {
   font-size: 10px;
   color: var(--text-muted);
 }
 
 .btn-secondary {
   width: 100%;
-  margin-top: 12px;
+  margin-top: 8px;
   background: rgba(79, 70, 229, 0.12);
   border: 1px solid rgba(79, 70, 229, 0.45);
   color: #a5b4fc;
+}
+
+.btn-save-compact {
+  width: 100%;
+  margin-top: 6px;
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  height: 28px;
 }
 
 .btn-secondary:not(:disabled):hover {
@@ -558,8 +642,9 @@ select {
 
 .save-status {
   display: block;
-  min-height: 14px;
-  margin-top: 6px;
+  min-height: 12px;
+  font-size: 10px;
+  margin-top: 4px;
   text-align: center;
   color: var(--success);
 }
