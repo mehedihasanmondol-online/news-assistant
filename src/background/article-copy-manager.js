@@ -111,14 +111,8 @@ export class ArticleCopyManager {
   }
 
   async navigateAndWait(url) {
-    // Chrome does not emit an onUpdated "complete" event when the requested
-    // URL is already the fully loaded active page. In that case it is ready
-    // to extract immediately rather than timing out after 30 seconds.
     const currentTab = await chrome.tabs.get(this.tabId);
-    if (currentTab.url === url && currentTab.status === 'complete') {
-      await new Promise((resolve) => setTimeout(resolve, WAIT_AFTER_LOAD_MS));
-      return;
-    }
+    const isSameUrl = currentTab.url.replace(/\/+$/, '') === url.replace(/\/+$/, '');
 
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => finish(new Error('The page took too long to load.')), 30000);
@@ -133,11 +127,16 @@ export class ArticleCopyManager {
         error ? reject(error) : resolve();
       };
       chrome.tabs.onUpdated.addListener(onUpdated);
-      chrome.tabs.update(this.tabId, { url }).then((tab) => {
-        // A very fast navigation can complete before the update listener has
-        // an opportunity to run, so use the returned tab as a second signal.
-        if (tab.status === 'complete') setTimeout(() => finish(), WAIT_AFTER_LOAD_MS);
-      }).catch(finish);
+
+      if (isSameUrl) {
+        chrome.tabs.reload(this.tabId).catch(finish);
+      } else {
+        chrome.tabs.update(this.tabId, { url }).then((tab) => {
+          // A very fast navigation can complete before the update listener has
+          // an opportunity to run, so use the returned tab as a second signal.
+          if (tab.status === 'complete') setTimeout(() => finish(), WAIT_AFTER_LOAD_MS);
+        }).catch(finish);
+      }
     });
   }
 }
