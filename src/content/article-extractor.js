@@ -50,6 +50,12 @@
 
   const EXCLUDED = [EXCLUDED_BASE, EXCLUDED_ADS, EXCLUDED_NOISE].join(', ');
 
+  function isExcluded(node) {
+    if (!node || node === document.body || node === document.documentElement) return false;
+    const match = node.closest(EXCLUDED);
+    return Boolean(match && match !== document.body && match !== document.documentElement);
+  }
+
   const CANDIDATES = [
     ['article, [itemprop="articleBody"], .article-body, .post-content, .entry-content, .story-body, .main__article, .article__body, .article-content, .post-body', 1.5],
     ['[role="main"] article', 1.4],
@@ -134,7 +140,7 @@
       [...document.querySelectorAll(selector)].map((node) => ({ node, weight }))
     );
     const seen = new Set();
-    const usable = candidates.filter(({ node }) => !seen.has(node) && (seen.add(node), !node.closest(EXCLUDED)));
+    const usable = candidates.filter(({ node }) => !seen.has(node) && (seen.add(node), !isExcluded(node)));
     const root = usable.sort((a, b) => textLength(b.node) * b.weight - textLength(a.node) * a.weight)[0]?.node;
     if (!root || textLength(root) < 120) throw new Error('No readable article area was found.');
     return root;
@@ -165,7 +171,7 @@
    */
   function detectContentDepth(root) {
     const candidates = [...root.querySelectorAll('h2, h3, h4, p')]
-      .filter(n => !n.closest(EXCLUDED) && isVisible(n))
+      .filter(n => !isExcluded(n) && isVisible(n))
       .filter(n => (n.innerText || '').trim().length >= 25);
 
     if (candidates.length === 0) return 3; // fallback — be permissive
@@ -193,7 +199,7 @@
     let depth = 0;
     let current = node.parentElement;
     while (current && current !== root) {
-      if (current.matches(EXCLUDED)) return false;
+      if (isExcluded(current)) return false;
       depth++;
       if (depth >= maxDepth) return false;
       current = current.parentElement;
@@ -213,7 +219,7 @@
     const maxDepth = detectContentDepth(root);
 
     for (const node of root.querySelectorAll('h1, h2, h3, h4, p')) {
-      if (node.closest(EXCLUDED) || !isVisible(node)) continue;
+      if (isExcluded(node) || !isVisible(node)) continue;
 
       // Depth-adaptive check: only accept nodes within the detected depth policy
       if (!isWithinDepth(node, root, maxDepth)) continue;
@@ -232,8 +238,8 @@
 
   function findDynamicRoot() {
     // Find all valid paragraphs across the entire document
-    const validParagraphs = [...document.querySelectorAll('p, h2, h3, h4')]
-      .filter(n => !n.closest(EXCLUDED) && isVisible(n) && textLength(n) >= 25);
+    const validParagraphs = [...document.querySelectorAll('p')]
+      .filter(n => !isExcluded(n) && isVisible(n) && textLength(n) >= 25);
 
     if (validParagraphs.length === 0) {
       throw new Error('No readable article area was found.');
@@ -269,7 +275,7 @@
     let bestCount = 0;
 
     for (const child of rootChildren) {
-      if (child.matches(EXCLUDED)) continue;
+      if (isExcluded(child)) continue;
       const count = validParagraphs.filter(p => child.contains(p)).length;
       if (count > bestCount) {
         bestCount = count;
@@ -293,7 +299,7 @@
 
     // No depth restrictions for dynamic policy
     for (const node of root.querySelectorAll('h1, h2, h3, h4, p')) {
-      if (node.closest(EXCLUDED) || !isVisible(node)) continue;
+      if (isExcluded(node) || !isVisible(node)) continue;
       if (skipLinkHeavy && isLinkHeavy(node)) continue;
       
       const value = (node.innerText || '').replace(/\s+/g, ' ').trim();
@@ -322,7 +328,7 @@
       nextSibling &&
       nextSibling.tagName === 'H2' &&
       nextSibling.parentElement === h1.parentElement &&
-      !nextSibling.closest(EXCLUDED) &&
+      !isExcluded(nextSibling) &&
       isVisible(nextSibling)
     ) {
       const subtitle = (nextSibling.innerText || '').replace(/\s+/g, ' ').trim();
