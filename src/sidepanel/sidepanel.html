@@ -75,7 +75,7 @@
                 <div class="compact-field">
                   <label for="minWidth">Min width</label>
                   <div class="input-with-unit">
-                    <input type="number" id="minWidth" min="100" max="8000" value="1200">
+                    <input type="number" id="minWidth" min="0" max="8000" value="1200">
                     <span class="unit">px</span>
                   </div>
                 </div>
@@ -86,6 +86,7 @@
                 <div class="compact-field">
                   <label for="aspectRatio">Aspect ratio</label>
                   <select id="aspectRatio">
+                    <option value="any">Any ratio</option>
                     <option value="16:9">16:9 — Wide</option>
                     <option value="4:3">4:3 — Standard</option>
                     <option value="1:1">1:1 — Square</option>

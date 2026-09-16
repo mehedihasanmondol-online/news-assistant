@@ -20,20 +20,22 @@ export function scoreImage(candidate, settings = {}) {
   // Aspect ratio and landscape orientation
   if (width > 0 && height > 0) {
     const aspectRatio = width / height;
-    if (aspectRatio > 1.2) {
-      score += 20; // Landscape
-    } else if (aspectRatio < 0.8) {
-      score -= 10; // Portrait (deprioritize for news usually)
-    }
+    if (settings.preferredAspectRatio !== 'any') {
+      if (aspectRatio > 1.2) {
+        score += 20; // Landscape
+      } else if (aspectRatio < 0.8) {
+        score -= 10; // Portrait (deprioritize for news usually)
+      }
 
-    if (aspectRatio >= 1.6) score += 15; // Wide landscape
+      if (aspectRatio >= 1.6) score += 15; // Wide landscape
 
-    // Prefer images nearest to the format selected in Settings without
-    // excluding useful alternatives when Google returns few exact matches.
-    const preferred = parseAspectRatio(settings.preferredAspectRatio);
-    if (preferred) {
-      const difference = Math.abs(aspectRatio - preferred) / preferred;
-      score += Math.max(0, Math.round(30 * (1 - difference)));
+      // Prefer images nearest to the format selected in Settings without
+      // excluding useful alternatives when Google returns few exact matches.
+      const preferred = parseAspectRatio(settings.preferredAspectRatio);
+      if (preferred) {
+        const difference = Math.abs(aspectRatio - preferred) / preferred;
+        score += Math.max(0, Math.round(30 * (1 - difference)));
+      }
     }
   }
 

@@ -284,6 +284,8 @@
           candidate.width = dimensions.width;
           candidate.height = dimensions.height;
           if (dimensions.width >= minimumWidth) verified.push(candidate);
+        } else if (minimumWidth === 0) {
+          verified.push(candidate);
         }
       }
     }

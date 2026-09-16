@@ -28,17 +28,14 @@ export function filterCandidates(candidates, settings) {
     const height = parseInt(candidate.height, 10) || 0;
 
     // 2. Minimum Width Check
-    // Google fallback results can omit dimensions. Treating an unknown width as
-    // acceptable bypasses the user's minimum-width setting and allows small
-    // images to be downloaded. Only candidates with verified dimensions pass.
-    if (width < minimumWidth) {
+    if (minimumWidth > 0 && width < minimumWidth) {
       return false;
     }
 
     // 3. Aspect Ratio Check
     if (width > 0 && height > 0) {
       const aspectRatio = width / height;
-      if (aspectRatio < minimumAspectRatio) {
+      if (settings?.preferredAspectRatio !== 'any' && minimumAspectRatio > 0 && aspectRatio < minimumAspectRatio) {
          return false; // Reject based on aspect ratio (e.g. portraits)
       }
     }

@@ -193,6 +193,9 @@ async function loadSettings() {
   el.minWidth.value = s.minimumWidth;
   el.minAspectRatio.value = s.minimumAspectRatio;
   el.aspectRatio.value = s.preferredAspectRatio || '16:9';
+  const isAnyRatio = el.aspectRatio.value === 'any';
+  el.minAspectRatio.disabled = isAnyRatio;
+  el.minAspectRatio.closest('.compact-field')?.classList.toggle('is-disabled', isAnyRatio);
   el.timeRange.value = s.timeRange || 'any';
   el.customDateMin.value = s.customDateMin || '';
   el.customDateMax.value = s.customDateMax || '';
@@ -209,10 +212,16 @@ function updateTimeRangeUI() {
 }
 
 function readSettings() {
+  const parsedMinRatio = parseFloat(el.minAspectRatio.value);
+  const minRatio = Number.isFinite(parsedMinRatio) ? parsedMinRatio : (el.aspectRatio.value === 'any' ? 0 : 1.4);
+
+  const parsedMinWidth = parseInt(el.minWidth.value, 10);
+  const minWidth = Number.isFinite(parsedMinWidth) ? parsedMinWidth : (el.aspectRatio.value === 'any' ? 0 : 1200);
+
   return {
     imagesPerTitle: parseInt(el.imagesPerTitle.value, 10) || 5,
-    minimumWidth: parseInt(el.minWidth.value, 10) || 1200,
-    minimumAspectRatio: parseFloat(el.minAspectRatio.value) || 1.78,
+    minimumWidth: minWidth,
+    minimumAspectRatio: minRatio,
     preferredAspectRatio: el.aspectRatio.value,
     timeRange: el.timeRange.value || 'any',
     customDateMin: el.customDateMin.value || '',
@@ -362,6 +371,7 @@ function updateDownloadLocationUI() {
 }
 
 const RATIO_RECOMMENDATIONS = {
+  'any': 0,
   '16:9': 1.4,
   '4:3': 1.2,
   '1:1': 0.9,
@@ -369,9 +379,27 @@ const RATIO_RECOMMENDATIONS = {
   '9:16': 0.5,
 };
 
+const WIDTH_RECOMMENDATIONS = {
+  'any': 0,
+  '16:9': 1200,
+  '4:3': 1000,
+  '1:1': 800,
+  '3:4': 750,
+  '9:16': 600,
+};
+
 function applyAspectRatioRecommendation() {
-  el.minAspectRatio.value = RATIO_RECOMMENDATIONS[el.aspectRatio.value];
-  el.saveStatus.textContent = 'Recommendation applied — save to keep it.';
+  const isAny = el.aspectRatio.value === 'any';
+  el.minAspectRatio.value = RATIO_RECOMMENDATIONS[el.aspectRatio.value] ?? (isAny ? 0 : 1.4);
+  el.minAspectRatio.disabled = isAny;
+  el.minAspectRatio.closest('.compact-field')?.classList.toggle('is-disabled', isAny);
+
+  const recommendedWidth = WIDTH_RECOMMENDATIONS[el.aspectRatio.value] ?? (isAny ? 0 : 1200);
+  el.minWidth.value = recommendedWidth;
+
+  el.saveStatus.textContent = isAny
+    ? 'Any ratio applied (min width set to 0) — save to keep it.'
+    : `Recommended applied (${recommendedWidth}px) — save to keep it.`;
 }
 
 async function saveSettings() {
