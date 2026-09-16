@@ -110,16 +110,13 @@
           // For dynamic root, the title might sit outside the root, so ensure a broader fallback
           title = getArticleTitle(dynamicRoot) || document.querySelector('h1')?.innerText || document.querySelector('h2.title, h2[class*="title"]')?.innerText || document.title;
           title = title.replace(/\s+/g, ' ').trim();
-          if (title && !text.startsWith(title)) {
-            text = title + '\n\n' + text;
-          }
+          text = attachHeaderToContent(text, title, dynamicRoot);
         } else {
           text = extraction.text;
           nodes = extraction.nodes;
           title = getArticleTitle(root) || document.title;
-          if (title && !text.startsWith(title)) {
-            text = title + '\n\n' + text;
-          }
+          title = title.replace(/\s+/g, ' ').trim();
+          text = attachHeaderToContent(text, title, root);
         }
 
         await showCopiedSequence(nodes, request.options);
@@ -312,8 +309,45 @@
   }
 
   function getArticleTitle(root) {
-    return (root.querySelector('h1')?.innerText || document.querySelector('h1')?.innerText || '')
+    return (root?.querySelector('h1')?.innerText || document.querySelector('h1')?.innerText || '')
       .replace(/\s+/g, ' ').trim();
+  }
+
+  function getArticleSubtitle(root) {
+    const h1 = root?.querySelector('h1') || document.querySelector('h1');
+    if (!h1) return '';
+
+    const nextSibling = h1.nextElementSibling;
+    if (
+      nextSibling &&
+      nextSibling.tagName === 'H2' &&
+      nextSibling.parentElement === h1.parentElement &&
+      !nextSibling.closest(EXCLUDED) &&
+      isVisible(nextSibling)
+    ) {
+      const subtitle = (nextSibling.innerText || '').replace(/\s+/g, ' ').trim();
+      if (subtitle.length >= 10 && subtitle.length <= 400 && !looksLikeNoise(subtitle, [], true)) {
+        return subtitle;
+      }
+    }
+    return '';
+  }
+
+  function attachHeaderToContent(text, title, root) {
+    if (!title) return text;
+    const subtitle = getArticleSubtitle(root);
+    const hasTitle = text.startsWith(title);
+    const hasSubtitle = subtitle ? text.includes(subtitle) : true;
+
+    if (!hasTitle) {
+      if (subtitle && !hasSubtitle) {
+        return `${title}\n\n${subtitle}\n\n${text}`;
+      }
+      return `${title}\n\n${text}`;
+    } else if (subtitle && !hasSubtitle) {
+      return text.replace(title, `${title}\n\n${subtitle}`);
+    }
+    return text;
   }
 
   function isVisible(node) {
