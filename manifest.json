@@ -48,7 +48,7 @@
     {
       "matches": ["<all_urls>"],
       "js": ["src/content/article-extractor.js"],
-      "run_at": "document_idle"
+      "run_at": "document_end"
     }
   ]
 }

@@ -80,8 +80,49 @@
     }`;
   document.documentElement.append(style);
 
+  function isPageContentReady() {
+    const paragraphs = document.querySelectorAll('p');
+    let count = 0;
+    for (const p of paragraphs) {
+      if (!isExcluded(p) && isVisible(p) && (p.innerText || '').trim().length >= 25) {
+        count++;
+        if (count >= 2) return true;
+      }
+    }
+    if (count === 1) {
+      for (const p of paragraphs) {
+        if (!isExcluded(p) && isVisible(p) && (p.innerText || '').trim().length >= 60) return true;
+      }
+    }
+    return false;
+  }
+
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    if (request.action === 'PING_READY') {
+      const ready = isPageContentReady();
+      if (ready) {
+        try {
+          window.stop();
+          document.querySelectorAll('video, audio').forEach((m) => {
+            try {
+              m.pause();
+              m.src = '';
+              m.load();
+            } catch (e) {}
+          });
+        } catch (e) {}
+      }
+      sendResponse({ ready, url: window.location.href });
+      return true;
+    }
+
     if (request.action !== 'ARTICLE_CONTENT_EXTRACTED') return;
+    try {
+      window.stop();
+      document.querySelectorAll('video, audio').forEach((m) => {
+        try { m.pause(); } catch (e) {}
+      });
+    } catch (e) {}
     (async () => {
       try {
         let text, nodes, title;

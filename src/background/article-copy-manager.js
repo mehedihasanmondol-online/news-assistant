@@ -115,25 +115,69 @@ export class ArticleCopyManager {
     const isSameUrl = currentTab.url.replace(/\/+$/, '') === url.replace(/\/+$/, '');
 
     return new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => finish(new Error('The page took too long to load.')), 30000);
-      const onUpdated = (updatedTabId, info) => {
-        if (updatedTabId === this.tabId && info.status === 'complete') {
-          setTimeout(() => finish(), WAIT_AFTER_LOAD_MS);
-        }
-      };
+      let isDone = false;
+      let pingInterval = null;
+
       const finish = (error) => {
+        if (isDone) return;
+        isDone = true;
         clearTimeout(timeout);
+        clearInterval(pingInterval);
         chrome.tabs.onUpdated.removeListener(onUpdated);
         error ? reject(error) : resolve();
       };
+
+      const timeout = setTimeout(() => finish(new Error('The page took too long to load.')), 25000);
+
+      const isUrlMatch = (current, target) => {
+        if (!current || !target) return false;
+        try {
+          const u1 = new URL(current);
+          const u2 = new URL(target);
+          return u1.origin === u2.origin && u1.pathname.replace(/\/+$/, '') === u2.pathname.replace(/\/+$/, '');
+        } catch (e) {
+          return current.replace(/\/+$/, '') === target.replace(/\/+$/, '');
+        }
+      };
+
+      let navigationStarted = !isSameUrl;
+      const onUpdated = (updatedTabId, info) => {
+        if (updatedTabId !== this.tabId) return;
+        if (info.status === 'loading') {
+          navigationStarted = true;
+        }
+        if (info.status === 'complete') {
+          setTimeout(() => finish(), WAIT_AFTER_LOAD_MS);
+        }
+      };
       chrome.tabs.onUpdated.addListener(onUpdated);
+
+      // Fast polling: check if content script is active and DOM is ready.
+      // Once ready, content script calls window.stop() to halt video/heavy resource loading.
+      let pingAttempts = 0;
+      pingInterval = setInterval(async () => {
+        if (isDone) return;
+        if (!navigationStarted) return;
+        pingAttempts++;
+        try {
+          const res = await chrome.tabs.sendMessage(this.tabId, { action: 'PING_READY' });
+          if (isUrlMatch(res?.url, url)) {
+            if (res.ready) {
+              setTimeout(() => finish(), 300);
+            } else if (pingAttempts >= 20) {
+              // Grace period for SPAs: after ~7s of waiting for client rendering, proceed anyway
+              setTimeout(() => finish(), 300);
+            }
+          }
+        } catch (e) {
+          // Page is still transitioning/loading, keep waiting
+        }
+      }, 350);
 
       if (isSameUrl) {
         chrome.tabs.reload(this.tabId).catch(finish);
       } else {
         chrome.tabs.update(this.tabId, { url }).then((tab) => {
-          // A very fast navigation can complete before the update listener has
-          // an opportunity to run, so use the returned tab as a second signal.
           if (tab.status === 'complete') setTimeout(() => finish(), WAIT_AFTER_LOAD_MS);
         }).catch(finish);
       }
