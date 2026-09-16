@@ -297,9 +297,16 @@
     const excludedPrefixes = (options.excludedWords || '').split('\n').map(w => w.trim().toLowerCase()).filter(Boolean);
     const skipLinkHeavy = options.skipLinkHeavy !== false;
 
-    // No depth restrictions for dynamic policy
+    // Adaptively detect content depth: prefer depth-1 (direct children), fall
+    // back to depth-2, then depth-3, based on where the majority of content lives.
+    const maxDepth = detectContentDepth(root);
+
     for (const node of root.querySelectorAll('h1, h2, h3, h4, p')) {
       if (isExcluded(node) || !isVisible(node)) continue;
+
+      // Depth-adaptive check: only accept nodes within the detected depth policy
+      if (!isWithinDepth(node, root, maxDepth)) continue;
+
       if (skipLinkHeavy && isLinkHeavy(node)) continue;
       
       const value = (node.innerText || '').replace(/\s+/g, ' ').trim();
@@ -383,6 +390,13 @@
 
     // Known noise labels
     if (/^(advertisement|advertise[sd]?|sponsored(?: content)?|promoted story|read more|related (stories?|articles?)|(?:\d+[\s\w]*|no\s+|leave a\s+|view\s+|add a\s+|post a\s+)?comments?(?:\s*[:(]\s*\d+\s*\)?)?|subscribe|sign up|sign in|log in|follow us|share this|click here|buy now|shop now|cookie|privacy policy|terms of use|newsletter|taboola|outbrain)$/i.test(value)) return true;
+
+    // Related / teaser callout patterns (e.g. "More Real Madrid transfer news:", "More on this:", "Also read: ...")
+    if (/^(more\s+.*\b(news|stories|updates|transfers?|coverage|reports?)|more\s+(?:on|about|from)|also read|see also|read also|read more about)\b/i.test(lowerValue)) {
+      if (/[:：]\s*$/.test(lowerValue) || (!/[.!?]$/.test(lowerValue) && value.split(/\s+/).length < 10)) {
+        return true;
+      }
+    }
     // Very short — likely a label, tag, or button text (skip this check for headings as they are often short)
     if (!isHeading && value.split(/\s+/).length < 4 && value.length < 40) return true;
     // Looks like a URL
