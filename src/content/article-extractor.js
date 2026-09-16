@@ -263,6 +263,27 @@
       }
     }
 
+    // Fallback: when no child meets the 70% threshold (e.g. grid layouts where
+    // article and sidebar are siblings), pick the child with the most paragraphs
+    // as long as it holds a meaningful share of the content.
+    const rootChildren = Array.from(currentRoot.children);
+    const currentRootCount = validParagraphs.filter(p => currentRoot.contains(p)).length;
+    let bestChild = null;
+    let bestCount = 0;
+
+    for (const child of rootChildren) {
+      if (child.matches(EXCLUDED)) continue;
+      const count = validParagraphs.filter(p => child.contains(p)).length;
+      if (count > bestCount) {
+        bestCount = count;
+        bestChild = child;
+      }
+    }
+
+    if (bestChild && bestCount >= 3 && currentRootCount > 0 && (bestCount / currentRootCount) >= 0.40) {
+      currentRoot = bestChild;
+    }
+
     return currentRoot;
   }
 
