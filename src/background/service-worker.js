@@ -90,19 +90,24 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         // Open target chatbot URL in new tab
         const tab = await chrome.tabs.create({ url: targetUrl, active: true });
 
-        // Optional listener fallback on page load
+        // Optional fallback: only send message if content script did not consume storage prompt
         if (tab?.id) {
           const tabUpdateListener = (updatedTabId, changeInfo) => {
             if (updatedTabId === tab.id && changeInfo.status === 'complete') {
               chrome.tabs.onUpdated.removeListener(tabUpdateListener);
-              setTimeout(() => {
-                chrome.tabs.sendMessage(tab.id, {
-                  action: 'INJECT_CHATBOT_PROMPT',
-                  payload
-                }).catch(() => {
-                  // Content script handles via storage anyway, harmless if already received
-                });
-              }, 1200);
+              setTimeout(async () => {
+                try {
+                  const stored = await chrome.storage.local.get('pendingChatbotPrompt');
+                  if (stored?.pendingChatbotPrompt) {
+                    await chrome.tabs.sendMessage(tab.id, {
+                      action: 'INJECT_CHATBOT_PROMPT',
+                      payload
+                    });
+                  }
+                } catch {
+                  // Harmless if tab closed or already consumed
+                }
+              }, 3000);
             }
           };
           chrome.tabs.onUpdated.addListener(tabUpdateListener);
