@@ -138,12 +138,23 @@ const el = {
   btnChipTitles: document.getElementById('btnChipTitles'),
   promptTemplate: document.getElementById('promptTemplate'),
   presetSaveNotice: document.getElementById('presetSaveNotice'),
-  promptPreviewToggle: document.getElementById('promptPreviewToggle'),
-  promptPreviewArrow: document.getElementById('promptPreviewArrow'),
+
+  // Fullscreen & Preview modal elements
+  promptPresetCard: document.getElementById('promptPresetCard'),
+  promptHeadlinesCard: document.getElementById('promptHeadlinesCard'),
+  btnOpenPromptPreviewModal: document.getElementById('btnOpenPromptPreviewModal'),
+  btnTogglePromptFullscreen: document.getElementById('btnTogglePromptFullscreen'),
+  btnToggleHeadlinesFullscreen: document.getElementById('btnToggleHeadlinesFullscreen'),
+  promptPreviewModal: document.getElementById('promptPreviewModal'),
+  promptPreviewBackdrop: document.getElementById('promptPreviewBackdrop'),
+  promptPreviewContainer: document.getElementById('promptPreviewContainer'),
+  btnTogglePreviewModalFullscreen: document.getElementById('btnTogglePreviewModalFullscreen'),
+  btnClosePromptPreviewModal: document.getElementById('btnClosePromptPreviewModal'),
+  btnClosePreviewModalBottom: document.getElementById('btnClosePreviewModalBottom'),
   promptPreviewStats: document.getElementById('promptPreviewStats'),
-  promptPreviewBody: document.getElementById('promptPreviewBody'),
   promptPreviewContent: document.getElementById('promptPreviewContent'),
   btnCopyResolvedPrompt: document.getElementById('btnCopyResolvedPrompt'),
+
   promptAutoSubmit: document.getElementById('promptAutoSubmit'),
   btnRunChatbotPrompt: document.getElementById('btnRunChatbotPrompt'),
   promptRunNotice: document.getElementById('promptRunNotice')
@@ -1298,10 +1309,55 @@ function getResolvedPrompt() {
 
 function updatePromptPreview() {
   const resolved = getResolvedPrompt();
-  el.promptPreviewContent.textContent = resolved;
+  if (el.promptPreviewContent) {
+    el.promptPreviewContent.textContent = resolved || '(Prompt preview will appear here once titles are entered)';
+  }
   const chars = resolved.length;
   const words = resolved.split(/\s+/).filter(Boolean).length;
-  el.promptPreviewStats.textContent = `${words} words · ${chars} chars`;
+  if (el.promptPreviewStats) {
+    el.promptPreviewStats.textContent = `${words} words · ${chars} chars`;
+  }
+}
+
+function openPromptPreviewModal() {
+  updatePromptPreview();
+  if (el.promptPreviewModal) {
+    el.promptPreviewModal.style.display = 'flex';
+  }
+}
+
+function closePromptPreviewModal() {
+  if (el.promptPreviewModal) {
+    el.promptPreviewModal.style.display = 'none';
+  }
+}
+
+function togglePreviewModalFullscreen() {
+  if (el.promptPreviewContainer) {
+    const isFull = el.promptPreviewContainer.classList.toggle('is-fullscreen');
+    if (el.btnTogglePreviewModalFullscreen) {
+      el.btnTogglePreviewModalFullscreen.textContent = isFull ? '🗗' : '⛶';
+      el.btnTogglePreviewModalFullscreen.title = isFull ? 'Restore normal view' : 'Toggle Fullscreen View';
+    }
+  }
+}
+
+function togglePromptEditorFullscreen() {
+  if (!el.promptPresetCard) return;
+  const isFull = el.promptPresetCard.classList.toggle('is-fullscreen');
+  if (el.btnTogglePromptFullscreen) {
+    el.btnTogglePromptFullscreen.textContent = isFull ? '✕ Exit' : '⛶ Fullscreen';
+    el.btnTogglePromptFullscreen.title = isFull ? 'Exit fullscreen editor' : 'Toggle Fullscreen prompt editor';
+  }
+}
+
+function toggleHeadlinesEditorFullscreen() {
+  if (!el.promptHeadlinesCard) return;
+  const isFull = el.promptHeadlinesCard.classList.toggle('is-fullscreen');
+  if (el.btnToggleHeadlinesFullscreen) {
+    el.btnToggleHeadlinesFullscreen.textContent = isFull ? '✕ Exit' : '⛶ Fullscreen';
+    el.btnToggleHeadlinesFullscreen.title = isFull ? 'Exit fullscreen headlines editor' : 'Toggle Fullscreen headlines editor';
+  }
 }
 
 function insertPlaceholderAtCursor(placeholder) {
@@ -1587,13 +1643,31 @@ function setupPromptListeners() {
   // Template changes
   el.promptTemplate.addEventListener('input', updatePromptPreview);
 
-  // Live Preview Collapsible
-  el.promptPreviewToggle.addEventListener('click', () => {
-    const hidden = el.promptPreviewBody.classList.toggle('hidden');
-    el.promptPreviewArrow.classList.toggle('open', !hidden);
+  // Preview Modal events
+  el.btnOpenPromptPreviewModal?.addEventListener('click', openPromptPreviewModal);
+  el.btnClosePromptPreviewModal?.addEventListener('click', closePromptPreviewModal);
+  el.btnClosePreviewModalBottom?.addEventListener('click', closePromptPreviewModal);
+  el.promptPreviewBackdrop?.addEventListener('click', closePromptPreviewModal);
+  el.btnTogglePreviewModalFullscreen?.addEventListener('click', togglePreviewModalFullscreen);
+
+  // Fullscreen Editor toggles
+  el.btnTogglePromptFullscreen?.addEventListener('click', togglePromptEditorFullscreen);
+  el.btnToggleHeadlinesFullscreen?.addEventListener('click', toggleHeadlinesEditorFullscreen);
+
+  // Global Escape key handler
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      if (el.promptPreviewModal && el.promptPreviewModal.style.display !== 'none') {
+        closePromptPreviewModal();
+      } else if (el.promptPresetCard?.classList.contains('is-fullscreen')) {
+        togglePromptEditorFullscreen();
+      } else if (el.promptHeadlinesCard?.classList.contains('is-fullscreen')) {
+        toggleHeadlinesEditorFullscreen();
+      }
+    }
   });
 
-  el.btnCopyResolvedPrompt.addEventListener('click', async () => {
+  el.btnCopyResolvedPrompt?.addEventListener('click', async () => {
     const resolved = getResolvedPrompt();
     try {
       await navigator.clipboard.writeText(resolved);

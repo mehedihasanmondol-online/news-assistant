@@ -425,10 +425,15 @@
         </section>
 
         <!-- Channel & Titles Card -->
-        <section class="card prompt-card">
-          <div class="card-header">
-            <span class="card-icon">▶️</span>
-            <h2>YouTube Channel &amp; News Headlines</h2>
+        <section class="card prompt-card" id="promptHeadlinesCard">
+          <div class="card-header" style="justify-content: space-between;">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span class="card-icon">▶️</span>
+              <h2>YouTube Channel &amp; News Headlines</h2>
+            </div>
+            <div class="card-header-actions">
+              <button id="btnToggleHeadlinesFullscreen" class="btn-mini-action btn-header-action" type="button" title="Toggle Fullscreen headlines editor">⛶ Fullscreen</button>
+            </div>
           </div>
           <div class="prompt-input-group">
             <!-- Channel Selector -->
@@ -470,13 +475,21 @@
         </section>
 
         <!-- Prompt Preset Management Card -->
-        <section class="card prompt-card">
+        <section class="card prompt-card" id="promptPresetCard">
           <div class="card-header" style="justify-content: space-between;">
             <div style="display:flex;align-items:center;gap:8px;">
               <span class="card-icon">⚡</span>
-              <h2>Prompt Presets</h2>
+              <h2>Prompt Presets &amp; Template</h2>
             </div>
-            <span id="promptPresetDefaultBadge" class="preset-default-badge" style="display:none;">★ Default</span>
+            <div class="card-header-actions">
+              <span id="promptPresetDefaultBadge" class="preset-default-badge" style="display:none;">★ Default</span>
+              <button id="btnOpenPromptPreviewModal" class="btn-mini-action btn-preview-action" type="button" title="View resolved prompt preview in modal">
+                👁️ Preview
+              </button>
+              <button id="btnTogglePromptFullscreen" class="btn-mini-action btn-header-action" type="button" title="Toggle Fullscreen prompt template editor">
+                ⛶ Fullscreen
+              </button>
+            </div>
           </div>
 
           <div class="preset-selector-row">
@@ -515,26 +528,6 @@
           </div>
         </section>
 
-        <!-- Live Resolved Prompt Preview (Collapsible) -->
-        <section class="card prompt-card preview-card">
-          <div class="card-header collapsible" id="promptPreviewToggle">
-            <div style="display:flex;align-items:center;gap:8px;">
-              <span class="card-icon">👁️</span>
-              <h2>Resolved Prompt Preview</h2>
-            </div>
-            <div style="display:flex;align-items:center;gap:8px;">
-              <span id="promptPreviewStats" class="preview-stats-pill">0 chars</span>
-              <span class="collapse-arrow" id="promptPreviewArrow">▼</span>
-            </div>
-          </div>
-          <div class="preview-body" id="promptPreviewBody">
-            <div id="promptPreviewContent" class="prompt-preview-text">Prompt preview will appear here once titles are entered.</div>
-            <div class="preview-footer-actions">
-              <button id="btnCopyResolvedPrompt" class="btn btn-secondary btn-copy-resolved" type="button">📋 Copy full prompt</button>
-            </div>
-          </div>
-        </section>
-
         <!-- Chatbot Run Execution Section -->
         <section class="prompt-run-section">
           <label class="checkbox-label auto-submit-label" for="promptAutoSubmit">
@@ -549,6 +542,35 @@
       </section>
 
     </main>
+  </div>
+
+  <!-- ══ Resolved Prompt Preview Modal ══ -->
+  <div id="promptPreviewModal" class="modal-overlay" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="promptPreviewModalTitle">
+    <div class="modal-backdrop" id="promptPreviewBackdrop"></div>
+    <div class="modal-container" id="promptPreviewContainer">
+      <div class="modal-header">
+        <div class="modal-header-title">
+          <span class="modal-icon">👁️</span>
+          <h2 id="promptPreviewModalTitle">Resolved Prompt Preview</h2>
+          <span id="promptPreviewStats" class="preview-stats-pill">0 chars</span>
+        </div>
+        <div class="modal-header-actions">
+          <button id="btnTogglePreviewModalFullscreen" class="btn-modal-icon" type="button" title="Toggle Fullscreen View">⛶</button>
+          <button id="btnClosePromptPreviewModal" class="btn-modal-icon btn-modal-close" type="button" title="Close Preview">✕</button>
+        </div>
+      </div>
+      <div class="modal-body">
+        <div id="promptPreviewContent" class="modal-preview-text" tabindex="0">Prompt preview will appear here once titles are entered.</div>
+      </div>
+      <div class="modal-footer">
+        <div class="modal-footer-left">
+          <button id="btnCopyResolvedPrompt" class="btn btn-secondary btn-copy-resolved" type="button">📋 Copy full prompt</button>
+        </div>
+        <div class="modal-footer-right">
+          <button id="btnClosePreviewModalBottom" class="btn btn-text btn-inline" type="button">Close</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script type="module" src="sidepanel.js"></script>
