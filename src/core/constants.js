@@ -35,6 +35,7 @@ export const CHATBOT_TARGETS = {
     id: 'chatgpt',
     name: 'ChatGPT',
     icon: '🤖',
+    logo: 'icons/chatgpt.png',
     url: 'https://chatgpt.com/',
     hostMatch: 'chatgpt.com'
   },
@@ -42,6 +43,7 @@ export const CHATBOT_TARGETS = {
     id: 'claude',
     name: 'Claude',
     icon: '🧠',
+    logo: 'icons/claude.png',
     url: 'https://claude.ai/new',
     hostMatch: 'claude.ai'
   },
@@ -49,6 +51,7 @@ export const CHATBOT_TARGETS = {
     id: 'gemini',
     name: 'Gemini',
     icon: '✨',
+    logo: 'icons/gemini.png',
     url: 'https://gemini.google.com/app',
     hostMatch: 'gemini.google.com'
   }

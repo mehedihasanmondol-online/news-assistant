@@ -1203,9 +1203,47 @@ select {
 }
 
 .chatbot-icon {
-  font-size: 20px;
-  margin-bottom: 4px;
-  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  margin-bottom: 6px;
+  border-radius: 8px;
+}
+
+.chatbot-logo-img {
+  width: 26px;
+  height: 26px;
+  object-fit: contain;
+  display: block;
+  user-select: none;
+  pointer-events: none;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), filter 0.2s ease;
+}
+
+.chatbot-card:hover .chatbot-logo-img {
+  transform: scale(1.1);
+}
+
+/* Chatbot-specific logo treatments for dark UI */
+.chatbot-card[data-bot="chatgpt"] .chatbot-logo-img {
+  filter: brightness(0) invert(0.92);
+}
+
+.chatbot-card[data-bot="chatgpt"]:hover .chatbot-logo-img,
+.chatbot-card[data-bot="chatgpt"].is-active .chatbot-logo-img {
+  filter: brightness(0) invert(1) drop-shadow(0 0 6px rgba(16, 163, 127, 0.6));
+}
+
+.chatbot-card[data-bot="claude"]:hover .chatbot-logo-img,
+.chatbot-card[data-bot="claude"].is-active .chatbot-logo-img {
+  filter: drop-shadow(0 0 6px rgba(217, 119, 6, 0.5));
+}
+
+.chatbot-card[data-bot="gemini"]:hover .chatbot-logo-img,
+.chatbot-card[data-bot="gemini"].is-active .chatbot-logo-img {
+  filter: drop-shadow(0 0 6px rgba(59, 130, 246, 0.55));
 }
 
 .chatbot-name {
