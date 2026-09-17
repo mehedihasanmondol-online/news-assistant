@@ -2,7 +2,7 @@ import { StateManager } from './state-manager.js';
 import { DownloadManager } from './download-manager.js';
 import { QueueManager } from './queue-manager.js';
 import { Logger } from '../utils/logger.js';
-import { MESSAGE_TYPES } from '../core/constants.js';
+import { MESSAGE_TYPES, CHATBOT_TARGETS } from '../core/constants.js';
 import { ArticleCopyManager } from './article-copy-manager.js';
 
 const stateManager = new StateManager();
@@ -72,6 +72,47 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         await articleCopyManager.fullReset();
         sendResponse({ success: true });
         break;
+
+      case MESSAGE_TYPES.RUN_CHATBOT_PROMPT: {
+        const { target, prompt, autoSubmit } = request.payload || {};
+        const botConfig = CHATBOT_TARGETS[target] || CHATBOT_TARGETS.chatgpt;
+        const targetUrl = botConfig.url;
+
+        // Store pending prompt payload for content script to consume
+        const payload = {
+          target: botConfig.id,
+          prompt,
+          autoSubmit: autoSubmit !== false,
+          timestamp: Date.now()
+        };
+        await chrome.storage.local.set({ pendingChatbotPrompt: payload });
+
+        // Open target chatbot URL in new tab
+        const tab = await chrome.tabs.create({ url: targetUrl, active: true });
+
+        // Optional listener fallback on page load
+        if (tab?.id) {
+          const tabUpdateListener = (updatedTabId, changeInfo) => {
+            if (updatedTabId === tab.id && changeInfo.status === 'complete') {
+              chrome.tabs.onUpdated.removeListener(tabUpdateListener);
+              setTimeout(() => {
+                chrome.tabs.sendMessage(tab.id, {
+                  action: 'INJECT_CHATBOT_PROMPT',
+                  payload
+                }).catch(() => {
+                  // Content script handles via storage anyway, harmless if already received
+                });
+              }, 1200);
+            }
+          };
+          chrome.tabs.onUpdated.addListener(tabUpdateListener);
+          // Auto remove listener after 40 seconds to prevent leak
+          setTimeout(() => chrome.tabs.onUpdated.removeListener(tabUpdateListener), 40000);
+        }
+
+        sendResponse({ success: true, tabId: tab?.id });
+        break;
+      }
 
       default:
         sendResponse({ error: 'Unknown action' });

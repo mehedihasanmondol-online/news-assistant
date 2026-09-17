@@ -28,6 +28,7 @@
       <nav class="tool-tabs" aria-label="Extension tools">
         <button class="tool-tab is-active" type="button" data-tool="articles">Article copy</button>
         <button class="tool-tab" type="button" data-tool="images">Image downloader</button>
+        <button class="tool-tab" type="button" data-tool="prompts">AI Prompt</button>
       </nav>
 
       <div id="imageTool" hidden>
@@ -378,6 +379,166 @@
             </div>
           </div>
           <div id="articleQueueList" class="article-queue-list"></div>
+        </section>
+      </section>
+
+      <!-- ══ AI PROMPT TOOL ══ -->
+      <section id="promptTool" class="prompt-tool" hidden>
+        <!-- Chatbot Selector Card -->
+        <section class="card prompt-card">
+          <div class="card-header">
+            <span class="card-icon">🤖</span>
+            <h2>Target Chatbot</h2>
+          </div>
+          <div class="chatbot-selector-grid">
+            <label class="chatbot-card is-active" data-bot="chatgpt">
+              <input type="radio" name="selectedChatbot" value="chatgpt" checked>
+              <div class="chatbot-icon">🤖</div>
+              <div class="chatbot-info">
+                <div class="chatbot-name">ChatGPT</div>
+                <div class="chatbot-url">chatgpt.com</div>
+              </div>
+            </label>
+            <label class="chatbot-card" data-bot="claude">
+              <input type="radio" name="selectedChatbot" value="claude">
+              <div class="chatbot-icon">🧠</div>
+              <div class="chatbot-info">
+                <div class="chatbot-name">Claude</div>
+                <div class="chatbot-url">claude.ai</div>
+              </div>
+            </label>
+            <label class="chatbot-card" data-bot="gemini">
+              <input type="radio" name="selectedChatbot" value="gemini">
+              <div class="chatbot-icon">✨</div>
+              <div class="chatbot-info">
+                <div class="chatbot-name">Gemini</div>
+                <div class="chatbot-url">gemini.google.com</div>
+              </div>
+            </label>
+          </div>
+        </section>
+
+        <!-- Channel & Titles Card -->
+        <section class="card prompt-card">
+          <div class="card-header">
+            <span class="card-icon">▶️</span>
+            <h2>YouTube Channel &amp; News Headlines</h2>
+          </div>
+          <div class="prompt-input-group">
+            <!-- Channel Selector -->
+            <div class="prompt-channel-row">
+              <label for="promptChannelSelect" class="prompt-label">YT Channel:</label>
+              <div class="channel-select-wrap">
+                <select id="promptChannelSelect" class="prompt-select"></select>
+                <button id="btnToggleAddChannel" class="btn-icon-action" type="button" title="Add new channel">➕</button>
+                <button id="btnDeleteChannel" class="btn-icon-action btn-icon-delete" type="button" title="Delete custom channel" disabled>🗑️</button>
+              </div>
+            </div>
+
+            <!-- Inline Add Channel Row (hidden by default) -->
+            <div id="addChannelBox" class="inline-add-box" style="display:none;">
+              <input type="text" id="newChannelName" placeholder="Enter YouTube channel name..." maxlength="50">
+              <div class="inline-add-actions">
+                <button id="btnSaveNewChannel" class="btn btn-secondary btn-inline" type="button">Add</button>
+                <button id="btnCancelNewChannel" class="btn-text btn-inline" type="button">Cancel</button>
+              </div>
+            </div>
+
+            <!-- News Titles Textarea -->
+            <div class="prompt-titles-wrap">
+              <label for="promptTitles" class="prompt-label">News Headlines:</label>
+              <textarea
+                id="promptTitles"
+                rows="5"
+                placeholder="Paste news headlines here, one per line:&#10;&#10;Bangladesh wins cricket series against Pakistan&#10;Metrorail extended to Motijheel&#10;Exports rise 12% this quarter"></textarea>
+              <div class="prompt-titles-meta">
+                <span id="promptTitleCount" class="char-hint">0 headlines</span>
+                <div class="prompt-quick-actions">
+                  <button id="btnPastePromptTitles" class="btn-mini-action" type="button">📋 Paste</button>
+                  <button id="btnImportFromArticleQueue" class="btn-mini-action btn-mini-highlight" type="button" title="Import titles from Article Copy queue">📥 From Articles</button>
+                  <button id="btnClearPromptTitles" class="btn-mini-action" type="button">Clear</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Prompt Preset Management Card -->
+        <section class="card prompt-card">
+          <div class="card-header" style="justify-content: space-between;">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span class="card-icon">⚡</span>
+              <h2>Prompt Presets</h2>
+            </div>
+            <span id="promptPresetDefaultBadge" class="preset-default-badge" style="display:none;">★ Default</span>
+          </div>
+
+          <div class="preset-selector-row">
+            <select id="promptPresetSelect" class="prompt-select"></select>
+          </div>
+
+          <!-- Preset Management Toolbar -->
+          <div class="preset-toolbar">
+            <button id="btnToggleNewPreset" class="btn-mini-action" type="button">➕ New Preset</button>
+            <button id="btnSaveCurrentPreset" class="btn-mini-action" type="button">💾 Save Edits</button>
+            <button id="btnSetDefaultPreset" class="btn-mini-action" type="button">★ Make Default</button>
+            <button id="btnResetDefaultPresets" class="btn-mini-action" type="button" title="Reset presets to YouTube package defaults">🔄 Reset Defaults</button>
+            <button id="btnDeletePreset" class="btn-mini-action btn-mini-danger" type="button">🗑️ Delete</button>
+          </div>
+
+          <!-- Inline New Preset Row (hidden by default) -->
+          <div id="newPresetBox" class="inline-add-box" style="display:none;">
+            <input type="text" id="newPresetName" placeholder="Enter preset name (e.g. YouTube Script)..." maxlength="60">
+            <div class="inline-add-actions">
+              <button id="btnSaveNewPreset" class="btn btn-secondary btn-inline" type="button">Create</button>
+              <button id="btnCancelNewPreset" class="btn-text btn-inline" type="button">Cancel</button>
+            </div>
+          </div>
+
+          <!-- Prompt Template Box -->
+          <div class="template-editor-wrap">
+            <div class="placeholder-chips-row">
+              <span class="chips-label">Insert:</span>
+              <button class="chip-btn" id="btnChipChannel" type="button" title="Insert {channel} placeholder">{channel}</button>
+              <button class="chip-btn" id="btnChipTitles" type="button" title="Insert {titles} placeholder">{titles}</button>
+            </div>
+            <textarea id="promptTemplate" rows="8" placeholder="Write your prompt template with {channel} and {titles} placeholders..."></textarea>
+            <div class="template-feedback-row">
+              <span id="presetSaveNotice" class="save-status" aria-live="polite"></span>
+            </div>
+          </div>
+        </section>
+
+        <!-- Live Resolved Prompt Preview (Collapsible) -->
+        <section class="card prompt-card preview-card">
+          <div class="card-header collapsible" id="promptPreviewToggle">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span class="card-icon">👁️</span>
+              <h2>Resolved Prompt Preview</h2>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span id="promptPreviewStats" class="preview-stats-pill">0 chars</span>
+              <span class="collapse-arrow" id="promptPreviewArrow">▼</span>
+            </div>
+          </div>
+          <div class="preview-body" id="promptPreviewBody">
+            <div id="promptPreviewContent" class="prompt-preview-text">Prompt preview will appear here once titles are entered.</div>
+            <div class="preview-footer-actions">
+              <button id="btnCopyResolvedPrompt" class="btn btn-secondary btn-copy-resolved" type="button">📋 Copy full prompt</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- Chatbot Run Execution Section -->
+        <section class="prompt-run-section">
+          <label class="checkbox-label auto-submit-label" for="promptAutoSubmit">
+            <input type="checkbox" id="promptAutoSubmit" checked>
+            <span>Automatically submit / press Enter in chatbot</span>
+          </label>
+          <button id="btnRunChatbotPrompt" class="btn btn-primary btn-run-prompt" type="button">
+            <span class="btn-icon">🚀</span> Open in <span id="targetChatbotLabel">ChatGPT</span> &amp; Run
+          </button>
+          <div id="promptRunNotice" class="prompt-run-notice" style="display:none;"></div>
         </section>
       </section>
 

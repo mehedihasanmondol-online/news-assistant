@@ -1,4 +1,13 @@
-import { MESSAGE_TYPES, QUEUE_STATUS, DEFAULT_SETTINGS, DEFAULT_ARTICLE_SETTINGS } from '../core/constants.js';
+import {
+  MESSAGE_TYPES,
+  QUEUE_STATUS,
+  DEFAULT_SETTINGS,
+  DEFAULT_ARTICLE_SETTINGS,
+  CHATBOT_TARGETS,
+  DEFAULT_CHANNELS,
+  DEFAULT_PROMPT_PRESETS,
+  DEFAULT_PROMPT_SETTINGS
+} from '../core/constants.js';
 
 // ===========================
 // DOM Element References
@@ -54,6 +63,7 @@ const el = {
   btnStartAgain: document.getElementById('btnStartAgain'),
   imageTool: document.getElementById('imageTool'),
   articleTool: document.getElementById('articleTool'),
+  promptTool: document.getElementById('promptTool'),
   tabs: document.querySelectorAll('.tool-tab'),
   articleLinks: document.getElementById('articleLinks'),
   articleLinkCount: document.getElementById('articleLinkCount'),
@@ -96,6 +106,47 @@ const el = {
   testMode: document.getElementById('testMode'),
   testDelaySeconds: document.getElementById('testDelaySeconds'),
   testDelayRow: document.getElementById('testDelayRow'),
+
+  // AI Prompt Tool elements
+  selectedChatbotCards: document.querySelectorAll('.chatbot-card'),
+  selectedChatbotInputs: document.querySelectorAll('input[name="selectedChatbot"]'),
+  targetChatbotLabel: document.getElementById('targetChatbotLabel'),
+  promptChannelSelect: document.getElementById('promptChannelSelect'),
+  btnToggleAddChannel: document.getElementById('btnToggleAddChannel'),
+  btnDeleteChannel: document.getElementById('btnDeleteChannel'),
+  addChannelBox: document.getElementById('addChannelBox'),
+  newChannelName: document.getElementById('newChannelName'),
+  btnSaveNewChannel: document.getElementById('btnSaveNewChannel'),
+  btnCancelNewChannel: document.getElementById('btnCancelNewChannel'),
+  promptTitles: document.getElementById('promptTitles'),
+  promptTitleCount: document.getElementById('promptTitleCount'),
+  btnPastePromptTitles: document.getElementById('btnPastePromptTitles'),
+  btnImportFromArticleQueue: document.getElementById('btnImportFromArticleQueue'),
+  btnClearPromptTitles: document.getElementById('btnClearPromptTitles'),
+  promptPresetSelect: document.getElementById('promptPresetSelect'),
+  promptPresetDefaultBadge: document.getElementById('promptPresetDefaultBadge'),
+  btnToggleNewPreset: document.getElementById('btnToggleNewPreset'),
+  btnSaveCurrentPreset: document.getElementById('btnSaveCurrentPreset'),
+  btnSetDefaultPreset: document.getElementById('btnSetDefaultPreset'),
+  btnResetDefaultPresets: document.getElementById('btnResetDefaultPresets'),
+  btnDeletePreset: document.getElementById('btnDeletePreset'),
+  newPresetBox: document.getElementById('newPresetBox'),
+  newPresetName: document.getElementById('newPresetName'),
+  btnSaveNewPreset: document.getElementById('btnSaveNewPreset'),
+  btnCancelNewPreset: document.getElementById('btnCancelNewPreset'),
+  btnChipChannel: document.getElementById('btnChipChannel'),
+  btnChipTitles: document.getElementById('btnChipTitles'),
+  promptTemplate: document.getElementById('promptTemplate'),
+  presetSaveNotice: document.getElementById('presetSaveNotice'),
+  promptPreviewToggle: document.getElementById('promptPreviewToggle'),
+  promptPreviewArrow: document.getElementById('promptPreviewArrow'),
+  promptPreviewStats: document.getElementById('promptPreviewStats'),
+  promptPreviewBody: document.getElementById('promptPreviewBody'),
+  promptPreviewContent: document.getElementById('promptPreviewContent'),
+  btnCopyResolvedPrompt: document.getElementById('btnCopyResolvedPrompt'),
+  promptAutoSubmit: document.getElementById('promptAutoSubmit'),
+  btnRunChatbotPrompt: document.getElementById('btnRunChatbotPrompt'),
+  promptRunNotice: document.getElementById('promptRunNotice')
 };
 
 // ===========================
@@ -155,9 +206,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   await loadSettings();
   await loadArticleSettings();
   await loadCopiedMarks();
+  await loadPromptSettings();
   await refreshState();
 
   setupListeners();
+  setupPromptListeners();
   startPolling();
   focusTitlesInput();
   refreshArticleCopyState();
@@ -678,11 +731,13 @@ function resetToStart() {
 // Article copy tool (independent from the image queue)
 // ===========================
 function switchTool(tool) {
-  const isArticles = tool === 'articles';
-  el.imageTool.hidden = isArticles;
-  el.articleTool.hidden = !isArticles;
+  el.imageTool.hidden = tool !== 'images';
+  el.articleTool.hidden = tool !== 'articles';
+  if (el.promptTool) el.promptTool.hidden = tool !== 'prompts';
   el.tabs.forEach((tab) => tab.classList.toggle('is-active', tab.dataset.tool === tool));
-  if (isArticles) el.articleLinks.focus({ preventScroll: true });
+  if (tool === 'articles') el.articleLinks.focus({ preventScroll: true });
+  else if (tool === 'images') el.titles.focus({ preventScroll: true });
+  else if (tool === 'prompts') el.promptTitles.focus({ preventScroll: true });
 }
 
 function updateArticleLinkCount() {
@@ -1095,3 +1150,452 @@ function sendMessage(action, payload = {}) {
     });
   });
 }
+
+// ==========================================================================
+// AI Prompt Hub Feature (YouTube News Package)
+// ==========================================================================
+let promptSettings = {
+  version: 2,
+  selectedChatbot: 'chatgpt',
+  selectedChannel: 'My YouTube Channel',
+  customChannels: [],
+  autoSubmit: true,
+  activePresetId: 'preset-youtube-package',
+  presets: JSON.parse(JSON.stringify(DEFAULT_PROMPT_PRESETS))
+};
+
+async function loadPromptSettings() {
+  try {
+    const data = await chrome.storage.local.get('promptAssistantSettings');
+    if (data.promptAssistantSettings) {
+      const s = data.promptAssistantSettings;
+      promptSettings.version = s.version || 1;
+      promptSettings.selectedChatbot = s.selectedChatbot || 'chatgpt';
+      promptSettings.selectedChannel = s.selectedChannel || DEFAULT_CHANNELS[0];
+      promptSettings.customChannels = Array.isArray(s.customChannels) ? s.customChannels : [];
+      promptSettings.autoSubmit = s.autoSubmit !== false;
+
+      // Migrate to v2 YouTube package presets if missing or old version
+      const hasYoutubePackage = Array.isArray(s.presets) && s.presets.some(p => p.id === 'preset-youtube-package');
+      if (!hasYoutubePackage || s.version !== 2) {
+        const defaultIds = new Set(DEFAULT_PROMPT_PRESETS.map(p => p.id));
+        const userCustomPresets = (s.presets || []).filter(p => !defaultIds.has(p.id) && !['preset-youtube-script', 'preset-social-posts', 'preset-voiceover-narration', 'preset-summary-brief'].includes(p.id));
+        promptSettings.presets = [...JSON.parse(JSON.stringify(DEFAULT_PROMPT_PRESETS)), ...userCustomPresets];
+        promptSettings.activePresetId = 'preset-youtube-package';
+        promptSettings.version = 2;
+        if (['Jamuna TV', 'Somoy TV', 'Channel 24'].includes(promptSettings.selectedChannel)) {
+          promptSettings.selectedChannel = DEFAULT_CHANNELS[0];
+        }
+        await savePromptSettings();
+      } else {
+        promptSettings.presets = s.presets;
+        promptSettings.activePresetId = s.activePresetId || 'preset-youtube-package';
+      }
+    }
+  } catch (e) {
+    console.warn('Failed to load prompt settings:', e);
+  }
+
+  // Ensure activePresetId exists in presets
+  if (!promptSettings.presets.some(p => p.id === promptSettings.activePresetId)) {
+    promptSettings.activePresetId = promptSettings.presets[0]?.id || 'preset-youtube-package';
+  }
+
+  renderPromptChatbotUI();
+  renderPromptChannels();
+  renderPromptPresets();
+  updatePromptTitleCount();
+  updatePromptPreview();
+}
+
+async function savePromptSettings() {
+  try {
+    await chrome.storage.local.set({ promptAssistantSettings: promptSettings });
+  } catch (e) {
+    console.warn('Failed to save prompt settings:', e);
+  }
+}
+
+function renderPromptChatbotUI() {
+  const bot = promptSettings.selectedChatbot || 'chatgpt';
+  el.selectedChatbotCards.forEach((card) => {
+    const isThis = card.dataset.bot === bot;
+    card.classList.toggle('is-active', isThis);
+    const radio = card.querySelector('input[type="radio"]');
+    if (radio) radio.checked = isThis;
+  });
+
+  const botConfig = CHATBOT_TARGETS[bot] || CHATBOT_TARGETS.chatgpt;
+  if (el.targetChatbotLabel) el.targetChatbotLabel.textContent = botConfig.name;
+}
+
+function renderPromptChannels() {
+  const allChannels = [...DEFAULT_CHANNELS, ...promptSettings.customChannels];
+  el.promptChannelSelect.innerHTML = allChannels.map((ch) => {
+    const isSelected = ch === promptSettings.selectedChannel;
+    return `<option value="${escHtml(ch)}" ${isSelected ? 'selected' : ''}>${escHtml(ch)}</option>`;
+  }).join('');
+
+  if (!allChannels.includes(promptSettings.selectedChannel)) {
+    promptSettings.selectedChannel = allChannels[0] || 'Jamuna TV';
+    el.promptChannelSelect.value = promptSettings.selectedChannel;
+  }
+
+  const isCustom = promptSettings.customChannels.includes(promptSettings.selectedChannel);
+  el.btnDeleteChannel.disabled = !isCustom;
+}
+
+function renderPromptPresets() {
+  el.promptPresetSelect.innerHTML = promptSettings.presets.map((p) => {
+    const isSelected = p.id === promptSettings.activePresetId;
+    const defaultTag = p.isDefault ? ' ★' : '';
+    return `<option value="${p.id}" ${isSelected ? 'selected' : ''}>${escHtml(p.name)}${defaultTag}</option>`;
+  }).join('');
+
+  const activePreset = getActivePreset();
+  if (activePreset) {
+    el.promptTemplate.value = activePreset.template;
+    el.promptPresetDefaultBadge.style.display = activePreset.isDefault ? 'inline-block' : 'none';
+    el.btnSetDefaultPreset.disabled = !!activePreset.isDefault;
+    el.btnDeletePreset.disabled = promptSettings.presets.length <= 1;
+  }
+}
+
+function getActivePreset() {
+  return promptSettings.presets.find(p => p.id === promptSettings.activePresetId) || promptSettings.presets[0];
+}
+
+function updatePromptTitleCount() {
+  const lines = el.promptTitles.value.split('\n').map(l => l.trim()).filter(Boolean);
+  const count = lines.length;
+  el.promptTitleCount.textContent = `${count} headline${count !== 1 ? 's' : ''}`;
+}
+
+function getResolvedPrompt() {
+  const template = el.promptTemplate.value || '';
+  const channel = promptSettings.selectedChannel || 'My YouTube Channel';
+  const titles = el.promptTitles.value.trim() || '— [Enter news headlines above] —';
+
+  return template
+    .replace(/\{channel\}/gi, channel)
+    .replace(/\{\{channel\}\}/gi, channel)
+    .replace(/\{channel_name\}/gi, channel)
+    .replace(/\{channelName\}/gi, channel)
+    .replace(/\{titles\}/gi, titles)
+    .replace(/\{\{titles\}\}/gi, titles)
+    .replace(/\{title\}/gi, titles)
+    .replace(/\{\{title\}\}/gi, titles);
+}
+
+function updatePromptPreview() {
+  const resolved = getResolvedPrompt();
+  el.promptPreviewContent.textContent = resolved;
+  const chars = resolved.length;
+  const words = resolved.split(/\s+/).filter(Boolean).length;
+  el.promptPreviewStats.textContent = `${words} words · ${chars} chars`;
+}
+
+function insertPlaceholderAtCursor(placeholder) {
+  const textarea = el.promptTemplate;
+  const start = textarea.selectionStart;
+  const end = textarea.selectionEnd;
+  const text = textarea.value;
+  textarea.value = text.substring(0, start) + placeholder + text.substring(end);
+  textarea.selectionStart = textarea.selectionEnd = start + placeholder.length;
+  textarea.focus();
+  updatePromptPreview();
+}
+
+function showPromptNotice(msg, type = 'info') {
+  el.promptRunNotice.textContent = msg;
+  el.promptRunNotice.style.display = 'block';
+  if (type === 'error') {
+    el.promptRunNotice.style.background = 'rgba(239, 68, 68, 0.15)';
+    el.promptRunNotice.style.borderColor = 'rgba(239, 68, 68, 0.4)';
+    el.promptRunNotice.style.color = '#f87171';
+  } else if (type === 'success') {
+    el.promptRunNotice.style.background = 'rgba(16, 185, 129, 0.15)';
+    el.promptRunNotice.style.borderColor = 'rgba(16, 185, 129, 0.4)';
+    el.promptRunNotice.style.color = '#34d399';
+  } else {
+    el.promptRunNotice.style.background = 'rgba(79, 70, 229, 0.15)';
+    el.promptRunNotice.style.borderColor = 'rgba(79, 70, 229, 0.4)';
+    el.promptRunNotice.style.color = '#a5b4fc';
+  }
+}
+
+async function handleRunChatbotPrompt() {
+  const titles = el.promptTitles.value.trim();
+  if (!titles) {
+    showPromptNotice('Please enter at least one news headline before running.', 'error');
+    el.promptTitles.focus();
+    return;
+  }
+
+  const bot = promptSettings.selectedChatbot || 'chatgpt';
+  const resolved = getResolvedPrompt();
+  const autoSubmit = el.promptAutoSubmit.checked;
+  const botName = CHATBOT_TARGETS[bot]?.name || 'Chatbot';
+
+  showPromptNotice(`Opening ${botName} and preparing prompt...`, 'info');
+
+  try {
+    const res = await sendMessage(MESSAGE_TYPES.RUN_CHATBOT_PROMPT, {
+      target: bot,
+      prompt: resolved,
+      autoSubmit
+    });
+
+    if (res?.success) {
+      showPromptNotice(`✓ Sent to ${botName}! Opened in a new tab.`, 'success');
+      setTimeout(() => {
+        if (el.promptRunNotice.textContent.includes('Opened in a new tab')) {
+          el.promptRunNotice.style.display = 'none';
+        }
+      }, 5000);
+    } else {
+      showPromptNotice(`Error: ${res?.error || 'Could not launch chatbot'}`, 'error');
+    }
+  } catch (err) {
+    showPromptNotice(`Error: ${err.message}`, 'error');
+  }
+}
+
+function setupPromptListeners() {
+  // Chatbot Selection
+  el.selectedChatbotCards.forEach((card) => {
+    card.addEventListener('click', () => {
+      const bot = card.dataset.bot;
+      if (bot && CHATBOT_TARGETS[bot]) {
+        promptSettings.selectedChatbot = bot;
+        renderPromptChatbotUI();
+        savePromptSettings();
+      }
+    });
+  });
+
+  // Channel Selection
+  el.promptChannelSelect.addEventListener('change', () => {
+    promptSettings.selectedChannel = el.promptChannelSelect.value;
+    const isCustom = promptSettings.customChannels.includes(promptSettings.selectedChannel);
+    el.btnDeleteChannel.disabled = !isCustom;
+    updatePromptPreview();
+    savePromptSettings();
+  });
+
+  // Channel Add / Delete
+  el.btnToggleAddChannel.addEventListener('click', () => {
+    const isHidden = el.addChannelBox.style.display === 'none';
+    el.addChannelBox.style.display = isHidden ? 'flex' : 'none';
+    if (isHidden) {
+      el.newChannelName.value = '';
+      el.newChannelName.focus();
+    }
+  });
+
+  el.btnCancelNewChannel.addEventListener('click', () => {
+    el.addChannelBox.style.display = 'none';
+    el.newChannelName.value = '';
+  });
+
+  el.btnSaveNewChannel.addEventListener('click', async () => {
+    const name = el.newChannelName.value.trim();
+    if (!name) return;
+    const allChannels = [...DEFAULT_CHANNELS, ...promptSettings.customChannels];
+    if (allChannels.includes(name)) {
+      promptSettings.selectedChannel = name;
+    } else {
+      promptSettings.customChannels.push(name);
+      promptSettings.selectedChannel = name;
+    }
+    el.addChannelBox.style.display = 'none';
+    el.newChannelName.value = '';
+    renderPromptChannels();
+    updatePromptPreview();
+    await savePromptSettings();
+  });
+
+  el.btnDeleteChannel.addEventListener('click', async () => {
+    const current = promptSettings.selectedChannel;
+    if (promptSettings.customChannels.includes(current)) {
+      promptSettings.customChannels = promptSettings.customChannels.filter(c => c !== current);
+      promptSettings.selectedChannel = DEFAULT_CHANNELS[0];
+      renderPromptChannels();
+      updatePromptPreview();
+      await savePromptSettings();
+    }
+  });
+
+  // Titles Input & Quick Actions
+  el.promptTitles.addEventListener('input', () => {
+    updatePromptTitleCount();
+    updatePromptPreview();
+  });
+
+  el.btnPastePromptTitles.addEventListener('click', async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (!text.trim()) {
+        showPromptNotice('Clipboard is empty or does not contain text.', 'error');
+        return;
+      }
+      el.promptTitles.value = text;
+      updatePromptTitleCount();
+      updatePromptPreview();
+      el.promptTitles.focus();
+    } catch {
+      showPromptNotice('Clipboard read was blocked. Please paste manually.', 'error');
+    }
+  });
+
+  el.btnImportFromArticleQueue.addEventListener('click', async () => {
+    try {
+      const state = await sendMessage(MESSAGE_TYPES.GET_ARTICLE_COPY_STATE);
+      const queue = state?.queue || [];
+      const titles = queue
+        .map(item => (item.title || '').trim())
+        .filter(Boolean);
+
+      if (titles.length === 0) {
+        showPromptNotice('No article titles found in Article Queue.', 'error');
+        return;
+      }
+
+      el.promptTitles.value = titles.join('\n');
+      updatePromptTitleCount();
+      updatePromptPreview();
+
+      const originalText = el.btnImportFromArticleQueue.textContent;
+      el.btnImportFromArticleQueue.textContent = `✓ Imported ${titles.length}`;
+      setTimeout(() => { el.btnImportFromArticleQueue.textContent = originalText; }, 2000);
+    } catch (e) {
+      console.warn('Failed to import titles from article queue:', e);
+      showPromptNotice('Could not import from article queue.', 'error');
+    }
+  });
+
+  el.btnClearPromptTitles.addEventListener('click', () => {
+    el.promptTitles.value = '';
+    updatePromptTitleCount();
+    updatePromptPreview();
+  });
+
+  // Preset Selection & Management
+  el.promptPresetSelect.addEventListener('change', () => {
+    promptSettings.activePresetId = el.promptPresetSelect.value;
+    renderPromptPresets();
+    updatePromptPreview();
+    savePromptSettings();
+  });
+
+  el.btnToggleNewPreset.addEventListener('click', () => {
+    const isHidden = el.newPresetBox.style.display === 'none';
+    el.newPresetBox.style.display = isHidden ? 'flex' : 'none';
+    if (isHidden) {
+      el.newPresetName.value = '';
+      el.newPresetName.focus();
+    }
+  });
+
+  el.btnCancelNewPreset.addEventListener('click', () => {
+    el.newPresetBox.style.display = 'none';
+    el.newPresetName.value = '';
+  });
+
+  el.btnSaveNewPreset.addEventListener('click', async () => {
+    const name = el.newPresetName.value.trim();
+    if (!name) return;
+
+    const newPreset = {
+      id: 'preset-' + Date.now(),
+      name,
+      isDefault: false,
+      template: el.promptTemplate.value || `You are an editor for '{channel}'.\n\nNews titles:\n{titles}\n\nCreate a report script.`
+    };
+
+    promptSettings.presets.push(newPreset);
+    promptSettings.activePresetId = newPreset.id;
+    el.newPresetBox.style.display = 'none';
+    el.newPresetName.value = '';
+    renderPromptPresets();
+    updatePromptPreview();
+    await savePromptSettings();
+  });
+
+  el.btnSaveCurrentPreset.addEventListener('click', async () => {
+    const activePreset = getActivePreset();
+    if (activePreset) {
+      activePreset.template = el.promptTemplate.value;
+      await savePromptSettings();
+      el.presetSaveNotice.textContent = 'Preset saved ✓';
+      setTimeout(() => { el.presetSaveNotice.textContent = ''; }, 2000);
+      updatePromptPreview();
+    }
+  });
+
+  el.btnSetDefaultPreset.addEventListener('click', async () => {
+    const activePreset = getActivePreset();
+    if (activePreset) {
+      promptSettings.presets.forEach(p => { p.isDefault = (p.id === activePreset.id); });
+      renderPromptPresets();
+      await savePromptSettings();
+      el.presetSaveNotice.textContent = 'Set as default ✓';
+      setTimeout(() => { el.presetSaveNotice.textContent = ''; }, 2000);
+    }
+  });
+
+  el.btnResetDefaultPresets?.addEventListener('click', async () => {
+    promptSettings.presets = JSON.parse(JSON.stringify(DEFAULT_PROMPT_PRESETS));
+    promptSettings.activePresetId = 'preset-youtube-package';
+    renderPromptPresets();
+    updatePromptPreview();
+    await savePromptSettings();
+    el.presetSaveNotice.textContent = 'Reset to YouTube defaults ✓';
+    setTimeout(() => { el.presetSaveNotice.textContent = ''; }, 2200);
+  });
+
+  el.btnDeletePreset.addEventListener('click', async () => {
+    if (promptSettings.presets.length <= 1) return;
+    const activeId = promptSettings.activePresetId;
+    promptSettings.presets = promptSettings.presets.filter(p => p.id !== activeId);
+    promptSettings.activePresetId = promptSettings.presets.find(p => p.isDefault)?.id || promptSettings.presets[0].id;
+    renderPromptPresets();
+    updatePromptPreview();
+    await savePromptSettings();
+  });
+
+  // Placeholder Chips
+  el.btnChipChannel.addEventListener('click', () => insertPlaceholderAtCursor('{channel}'));
+  el.btnChipTitles.addEventListener('click', () => insertPlaceholderAtCursor('{titles}'));
+
+  // Template changes
+  el.promptTemplate.addEventListener('input', updatePromptPreview);
+
+  // Live Preview Collapsible
+  el.promptPreviewToggle.addEventListener('click', () => {
+    const hidden = el.promptPreviewBody.classList.toggle('hidden');
+    el.promptPreviewArrow.classList.toggle('open', !hidden);
+  });
+
+  el.btnCopyResolvedPrompt.addEventListener('click', async () => {
+    const resolved = getResolvedPrompt();
+    try {
+      await navigator.clipboard.writeText(resolved);
+      const originalText = el.btnCopyResolvedPrompt.textContent;
+      el.btnCopyResolvedPrompt.textContent = 'Prompt copied ✓';
+      setTimeout(() => { el.btnCopyResolvedPrompt.textContent = originalText; }, 1800);
+    } catch {
+      showPromptNotice('Clipboard access blocked. Please copy manually.', 'error');
+    }
+  });
+
+  // Auto-submit checkbox
+  el.promptAutoSubmit.addEventListener('change', () => {
+    promptSettings.autoSubmit = el.promptAutoSubmit.checked;
+    savePromptSettings();
+  });
+
+  // Run in Chatbot
+  el.btnRunChatbotPrompt.addEventListener('click', handleRunChatbotPrompt);
+}
+

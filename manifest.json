@@ -9,7 +9,8 @@
     "downloads",
     "tabs",
     "activeTab",
-    "sidePanel"
+    "sidePanel",
+    "scripting"
   ],
   "host_permissions": [
     "https://*.google.com/*",
@@ -49,6 +50,16 @@
       "matches": ["<all_urls>"],
       "js": ["src/content/article-extractor.js"],
       "run_at": "document_end"
+    },
+    {
+      "matches": [
+        "https://chatgpt.com/*",
+        "https://*.chatgpt.com/*",
+        "https://claude.ai/*",
+        "https://gemini.google.com/*"
+      ],
+      "js": ["src/content/chatbot-injector.js"],
+      "run_at": "document_idle"
     }
   ]
 }
