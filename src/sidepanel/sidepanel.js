@@ -106,7 +106,7 @@ const el = {
   pipelineChannelSelect: document.getElementById('pipelineChannelSelect'),
   pipelineChatbotSelect: document.getElementById('pipelineChatbotSelect'),
   pipelineSettingsRow: document.getElementById('pipelineSettingsRow'),
-  btnStartMasterPipeline: document.getElementById('btnStartMasterPipeline'),
+  pipelineAside: document.getElementById('pipelineAside'),
   articleControlsWrapper: document.getElementById('articleControlsWrapper'),
   testMode: document.getElementById('testMode'),
   testDelaySeconds: document.getElementById('testDelaySeconds'),
@@ -302,10 +302,22 @@ function readSettings() {
   };
 }
 
+function updatePipelineCardsState() {
+  const cardImg = document.getElementById('cardAutoDownloadImages');
+  const cardPrompt = document.getElementById('cardAutoRunChatbotPrompt');
+  if (cardImg && el.autoDownloadImages) {
+    cardImg.classList.toggle('is-checked', el.autoDownloadImages.checked);
+  }
+  if (cardPrompt && el.autoRunChatbotPrompt) {
+    cardPrompt.classList.toggle('is-checked', el.autoRunChatbotPrompt.checked);
+  }
+}
+
 function updatePipelineSettingsRowVisibility() {
   if (!el.pipelineSettingsRow) return;
   const isEnabled = el.autoRunChatbotPrompt ? el.autoRunChatbotPrompt.checked : true;
   el.pipelineSettingsRow.style.display = isEnabled ? 'grid' : 'none';
+  updatePipelineCardsState();
 }
 
 async function loadArticleSettings() {
@@ -323,6 +335,7 @@ async function loadArticleSettings() {
     el.autoRunChatbotPrompt.checked = s.autoRunChatbotPrompt !== undefined ? !!s.autoRunChatbotPrompt : true;
   }
   updatePipelineSettingsRowVisibility();
+  updatePipelineCardsState();
 }
 
 function readArticleSettings() {
@@ -397,6 +410,7 @@ function setupListeners() {
 
   // Automation Pipeline Listeners
   el.autoDownloadImages?.addEventListener('change', () => {
+    updatePipelineCardsState();
     saveArticleSettings();
   });
   el.autoRunChatbotPrompt?.addEventListener('change', () => {
@@ -413,13 +427,6 @@ function setupListeners() {
     promptSettings.selectedChatbot = el.pipelineChatbotSelect.value;
     renderPromptChatbotUI();
     savePromptSettings();
-  });
-  el.btnStartMasterPipeline?.addEventListener('click', () => {
-    if (el.autoDownloadImages) el.autoDownloadImages.checked = true;
-    if (el.autoRunChatbotPrompt) el.autoRunChatbotPrompt.checked = true;
-    updatePipelineSettingsRowVisibility();
-    saveArticleSettings();
-    startArticleCopy();
   });
 
   const handleClearArticleCopy = async () => {
@@ -903,7 +910,6 @@ function renderArticleCopyState(state) {
   el.articleProgressBar.style.width = `${queue.length ? Math.round((completed / queue.length) * 100) : 0}%`;
   el.articleCurrentUrl.textContent = active?.url || (queue.length ? 'Copying is finished. You can copy all extracted text now.' : 'The source page will scroll to the highlighted article area while it is being copied.');
   el.btnStartArticleCopy.disabled = isCopying;
-  if (el.btnStartMasterPipeline) el.btnStartMasterPipeline.disabled = isCopying;
   el.btnStopArticleCopy.disabled = !isCopying;
   el.btnCopyResults.disabled = !state.copiedText;
   el.btnCopyAllHeadingsMain.disabled = !state.copiedText;
@@ -998,7 +1004,6 @@ function renderArticleCopyState(state) {
     el.articleControlsWrapper.hidden = false;
     el.articleControlsWrapper.classList.add('is-copying');
     el.articleControls.classList.add('is-copying');
-    if (el.btnStartMasterPipeline) el.btnStartMasterPipeline.style.display = 'none';
     el.articleProgressBar.closest('.article-progress-card').hidden = false;
     el.articleQueueList.closest('.article-queue-card').hidden = false;
   } else {
@@ -1007,7 +1012,6 @@ function renderArticleCopyState(state) {
     el.articleControlsWrapper.hidden = false;
     el.articleControlsWrapper.classList.remove('is-copying');
     el.articleControls.classList.remove('is-copying');
-    if (el.btnStartMasterPipeline) el.btnStartMasterPipeline.style.display = '';
     // Show progress/queue cards if there is run data.
     // articleRestoredWithData = restored on reload (show queue).
     // articleSuccessDismissed without restore = user dismissed mid-session (hide queue for fresh feel).

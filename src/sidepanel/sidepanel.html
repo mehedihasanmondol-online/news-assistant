@@ -333,26 +333,36 @@
           </div>
         </section>
         <section class="article-controls-wrapper" id="articleControlsWrapper">
-          <!-- ══ Automation Pipeline Panel ══ -->
-          <div class="pipeline-panel">
-            <div class="pipeline-header">
-              <span class="pipeline-badge">⚡ Automation Pipeline</span>
+          <!-- ══ Automation Pipeline Aside (2 Side-by-Side Cards) ══ -->
+          <aside class="pipeline-aside" id="pipelineAside" aria-label="Automation Options">
+            <div class="pipeline-cards-grid">
+              <!-- Card 1: Auto Download Images -->
+              <label class="pipeline-option-card" for="autoDownloadImages" id="cardAutoDownloadImages">
+                <div class="pipeline-card-top">
+                  <span class="pipeline-card-icon">🖼️</span>
+                  <input type="checkbox" id="autoDownloadImages" class="pipeline-card-checkbox" checked>
+                </div>
+                <div class="pipeline-card-info">
+                  <span class="pipeline-card-title">Download Images</span>
+                  <span class="pipeline-card-desc">Auto-fetch news images</span>
+                </div>
+              </label>
+
+              <!-- Card 2: Auto Run AI Prompt -->
+              <label class="pipeline-option-card" for="autoRunChatbotPrompt" id="cardAutoRunChatbotPrompt">
+                <div class="pipeline-card-top">
+                  <span class="pipeline-card-icon">🤖</span>
+                  <input type="checkbox" id="autoRunChatbotPrompt" class="pipeline-card-checkbox" checked>
+                </div>
+                <div class="pipeline-card-info">
+                  <span class="pipeline-card-title">Run AI Prompt</span>
+                  <span class="pipeline-card-desc">Auto-execute in chatbot</span>
+                </div>
+              </label>
             </div>
 
-            <!-- Checkbox 1: Auto Download Images -->
-            <label class="checkbox-label pipeline-checkbox" for="autoDownloadImages">
-              <input type="checkbox" id="autoDownloadImages" checked>
-              <span>Auto download images for copied articles</span>
-            </label>
-
-            <!-- Checkbox 2: Auto Run AI Prompt -->
-            <label class="checkbox-label pipeline-checkbox" for="autoRunChatbotPrompt">
-              <input type="checkbox" id="autoRunChatbotPrompt" checked>
-              <span>Auto generate &amp; run AI prompt in chatbot</span>
-            </label>
-
-            <!-- Solution 1: Channel & Chatbot Selector Row -->
-            <div class="pipeline-settings-row" id="pipelineSettingsRow">
+            <!-- Channel & Chatbot Selector Row (Revealed when Auto Run AI Prompt is checked) -->
+            <div class="pipeline-settings-row" id="pipelineSettingsRow" style="display: none;">
               <div class="pipeline-field">
                 <label for="pipelineChannelSelect" class="pipeline-label">YT Channel:</label>
                 <select id="pipelineChannelSelect" class="prompt-select pipeline-select"></select>
@@ -366,12 +376,7 @@
                 </select>
               </div>
             </div>
-          </div>
-
-          <!-- Master 1-Click Automation Button -->
-          <button id="btnStartMasterPipeline" class="btn btn-master-pipeline" type="button">
-            <span class="btn-icon">⚡</span> 1-Click Full Automation
-          </button>
+          </aside>
 
           <section class="article-controls" id="articleControls">
             <button id="btnStartArticleCopy" class="btn btn-primary" type="button"><span class="btn-icon">▶</span> Start copying</button>
