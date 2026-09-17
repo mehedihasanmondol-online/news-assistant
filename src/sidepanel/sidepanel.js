@@ -1226,6 +1226,7 @@ function renderPromptChatbotUI() {
 
   const botConfig = CHATBOT_TARGETS[bot] || CHATBOT_TARGETS.chatgpt;
   if (el.targetChatbotLabel) el.targetChatbotLabel.textContent = botConfig.name;
+  if (el.btnRunChatbotPrompt) el.btnRunChatbotPrompt.dataset.bot = bot;
 }
 
 function renderPromptChannels() {
