@@ -2023,3 +2023,198 @@ select {
   animation: fadeIn 0.2s ease;
 }
 
+/* ==========================================================================
+   Prompt Tool Success Screen
+   ========================================================================== */
+.prompt-input-view {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+.prompt-input-view[hidden] {
+  display: none !important;
+}
+
+.prompt-success-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 26px 14px 28px;
+  text-align: center;
+  animation: fadeSlideUp 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.prompt-success-screen[hidden] {
+  display: none !important;
+}
+
+/* ── Checkmark Icon ── */
+.prompt-success-icon-wrap {
+  width: 68px;
+  height: 68px;
+  margin-bottom: 16px;
+  position: relative;
+}
+
+.prompt-success-check {
+  width: 100%;
+  height: 100%;
+  filter: drop-shadow(0 0 14px rgba(16, 185, 129, 0.45));
+}
+
+.prompt-check-circle {
+  fill: rgba(16, 185, 129, 0.12);
+  stroke: var(--success, #10b981);
+  stroke-width: 3.5;
+  stroke-dasharray: 150;
+  stroke-dashoffset: 150;
+  animation: drawCirclePrompt 0.6s cubic-bezier(0.65, 0, 0.45, 1) forwards;
+}
+
+.prompt-check-mark {
+  fill: none;
+  stroke: var(--success, #10b981);
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 40;
+  stroke-dashoffset: 40;
+  animation: drawCheckPrompt 0.35s 0.45s ease forwards;
+}
+
+@keyframes drawCirclePrompt {
+  to { stroke-dashoffset: 0; }
+}
+
+@keyframes drawCheckPrompt {
+  to { stroke-dashoffset: 0; }
+}
+
+/* ── Title & Subtitle ── */
+.prompt-success-title {
+  font-size: 19px;
+  font-weight: 700;
+  color: var(--text, #f1f5f9);
+  margin-bottom: 6px;
+  letter-spacing: -0.3px;
+}
+
+.prompt-success-sub {
+  font-size: 12px;
+  color: var(--text-muted, #94a3b8);
+  line-height: 1.5;
+  max-width: 300px;
+  margin-bottom: 16px;
+}
+
+.prompt-success-sub strong {
+  color: #fff;
+}
+
+/* ── Destination Pills ── */
+.prompt-success-pills {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+.prompt-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-card, rgba(255, 255, 255, 0.04));
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.1));
+  border-radius: 20px;
+  padding: 5px 12px;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--text-subtle, #cbd5e1);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+.prompt-pill img {
+  border-radius: 3px;
+  display: block;
+}
+
+.prompt-pill .pill-icon {
+  font-size: 13px;
+}
+
+/* ── Stats Grid ── */
+.prompt-success-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  width: 100%;
+  margin-bottom: 22px;
+}
+
+.pstat {
+  background: var(--bg-card, rgba(255, 255, 255, 0.03));
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+  border-radius: var(--radius-sm, 8px);
+  padding: 11px 4px;
+  text-align: center;
+  animation: popIn 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.pstat:nth-child(1) { animation-delay: 0.1s; }
+.pstat:nth-child(2) { animation-delay: 0.2s; }
+.pstat:nth-child(3) { animation-delay: 0.3s; }
+.pstat:nth-child(4) { animation-delay: 0.4s; }
+
+.pstat-purple { border-color: rgba(168, 85, 247, 0.35); }
+.pstat-blue   { border-color: rgba(59, 130, 246, 0.35); }
+.pstat-green  { border-color: rgba(16, 185, 129, 0.35); }
+
+.pstat-val {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text, #f1f5f9);
+  line-height: 1.15;
+  margin-bottom: 3px;
+}
+
+.pstat-purple .pstat-val { color: #c084fc; }
+.pstat-blue .pstat-val   { color: #60a5fa; }
+.pstat-green .pstat-val  { color: var(--success, #10b981); }
+
+.pstat-lbl {
+  font-size: 10px;
+  color: var(--text-muted, #94a3b8);
+  font-weight: 500;
+}
+
+/* ── Actions ── */
+.prompt-success-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  margin-bottom: 14px;
+}
+
+.prompt-success-actions .btn {
+  width: 100%;
+  margin: 0;
+  padding: 11px 14px;
+  font-size: 12px;
+}
+
+#btnCopySuccessPrompt {
+  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+  box-shadow: 0 4px 14px rgba(79, 70, 229, 0.35);
+}
+
+#btnCopySuccessPrompt:hover {
+  box-shadow: 0 6px 20px rgba(79, 70, 229, 0.5);
+  transform: translateY(-1px);
+}
+
+

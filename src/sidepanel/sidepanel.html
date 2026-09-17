@@ -425,6 +425,7 @@
 
       <!-- ══ AI PROMPT TOOL ══ -->
       <section id="promptTool" class="prompt-tool" hidden>
+        <div id="promptInputView" class="prompt-input-view">
         <!-- Chatbot Selector Card -->
         <section class="card prompt-card">
           <div class="card-header">
@@ -579,6 +580,70 @@
             <span class="btn-icon">🚀</span> Open in <span id="targetChatbotLabel">ChatGPT</span> &amp; Run
           </button>
           <div id="promptRunNotice" class="prompt-run-notice" style="display:none;"></div>
+        </section>
+        </div><!-- /#promptInputView -->
+
+        <!-- ══ Prompt Success Screen ══ -->
+        <section class="prompt-success-screen" id="promptSuccessScreen" hidden>
+          <div class="prompt-success-icon-wrap">
+            <svg class="prompt-success-check" viewBox="0 0 52 52" xmlns="http://www.w3.org/2000/svg">
+              <circle class="prompt-check-circle" cx="26" cy="26" r="23"/>
+              <polyline class="prompt-check-mark" points="14,27 24,37 38,18"/>
+            </svg>
+          </div>
+
+          <h2 class="prompt-success-title" id="promptSuccessTitle">Prompt Dispatched!</h2>
+          <p class="prompt-success-sub" id="promptSuccessSub">Your news package prompt was successfully generated and sent to <strong id="promptSuccessBotName">ChatGPT</strong>.</p>
+
+          <!-- Destination Info Pill -->
+          <div class="prompt-success-pills">
+            <span class="prompt-pill" id="promptSuccessBotPill">
+              <img id="promptSuccessBotLogo" src="../../icons/chatgpt.png" alt="Bot" width="16" height="16">
+              <span id="promptSuccessBotLabel">ChatGPT</span>
+            </span>
+            <span class="prompt-pill" id="promptSuccessChannelPill">
+              <span class="pill-icon">📺</span>
+              <span id="promptSuccessChannelLabel">My News Channel</span>
+            </span>
+          </div>
+
+          <!-- Summary Stats -->
+          <div class="prompt-success-stats">
+            <div class="pstat">
+              <div class="pstat-val" id="promptSuccessHeadlines">0</div>
+              <div class="pstat-lbl">Headlines</div>
+            </div>
+            <div class="pstat pstat-purple">
+              <div class="pstat-val" id="promptSuccessBotStat">GPT</div>
+              <div class="pstat-lbl">Chatbot</div>
+            </div>
+            <div class="pstat pstat-blue">
+              <div class="pstat-val" id="promptSuccessWords">0</div>
+              <div class="pstat-lbl">Words</div>
+            </div>
+            <div class="pstat pstat-green">
+              <div class="pstat-val" id="promptSuccessChars">0</div>
+              <div class="pstat-lbl">Chars</div>
+            </div>
+          </div>
+
+          <!-- Action Buttons -->
+          <div class="prompt-success-actions">
+            <button id="btnCopySuccessPrompt" class="btn btn-primary" type="button">
+              📋 Copy full prompt
+            </button>
+            <button id="btnOpenSuccessPreviewModal" class="btn btn-secondary" type="button">
+              👁️ View full prompt
+            </button>
+            <button id="btnReopenChatbotTab" class="btn btn-secondary" type="button">
+              🚀 Open in <span id="promptSuccessReopenLabel">ChatGPT</span> again
+            </button>
+          </div>
+
+          <!-- Start Again button -->
+          <button class="btn btn-start-again" id="btnPromptStartAgain" type="button">
+            <span>↩</span> Edit or create another prompt
+          </button>
         </section>
       </section>
 

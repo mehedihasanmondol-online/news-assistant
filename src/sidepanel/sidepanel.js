@@ -162,7 +162,28 @@ const el = {
 
   promptAutoSubmit: document.getElementById('promptAutoSubmit'),
   btnRunChatbotPrompt: document.getElementById('btnRunChatbotPrompt'),
-  promptRunNotice: document.getElementById('promptRunNotice')
+  promptRunNotice: document.getElementById('promptRunNotice'),
+
+  // Prompt Success Screen Elements
+  promptInputView: document.getElementById('promptInputView'),
+  promptSuccessScreen: document.getElementById('promptSuccessScreen'),
+  promptSuccessTitle: document.getElementById('promptSuccessTitle'),
+  promptSuccessSub: document.getElementById('promptSuccessSub'),
+  promptSuccessBotName: document.getElementById('promptSuccessBotName'),
+  promptSuccessBotPill: document.getElementById('promptSuccessBotPill'),
+  promptSuccessBotLogo: document.getElementById('promptSuccessBotLogo'),
+  promptSuccessBotLabel: document.getElementById('promptSuccessBotLabel'),
+  promptSuccessChannelPill: document.getElementById('promptSuccessChannelPill'),
+  promptSuccessChannelLabel: document.getElementById('promptSuccessChannelLabel'),
+  promptSuccessHeadlines: document.getElementById('promptSuccessHeadlines'),
+  promptSuccessBotStat: document.getElementById('promptSuccessBotStat'),
+  promptSuccessWords: document.getElementById('promptSuccessWords'),
+  promptSuccessChars: document.getElementById('promptSuccessChars'),
+  btnCopySuccessPrompt: document.getElementById('btnCopySuccessPrompt'),
+  btnOpenSuccessPreviewModal: document.getElementById('btnOpenSuccessPreviewModal'),
+  btnReopenChatbotTab: document.getElementById('btnReopenChatbotTab'),
+  promptSuccessReopenLabel: document.getElementById('promptSuccessReopenLabel'),
+  btnPromptStartAgain: document.getElementById('btnPromptStartAgain')
 };
 
 // ===========================
@@ -185,6 +206,8 @@ let articleRestoredWithData = false; // True when browser reloads with existing 
 let newBatchStartIndex = 0; // Queue index where the latest batch of new links starts
 const copiedPostIndexes = new Set();
 const copiedHeadingIndexes = new Set();
+let lastDispatchedPrompt = '';
+let lastDispatchedBot = 'chatgpt';
 
 async function loadCopiedMarks() {
   try {
@@ -957,6 +980,7 @@ function triggerAutoChatbotPrompt(titlesList = null) {
   }).then((res) => {
     if (res?.success) {
       showPromptNotice(`✓ Prompt dispatched to ${CHATBOT_TARGETS[targetBot]?.name || targetBot}!`, 'success');
+      showPromptSuccessScreen(targetBot, resolvedPrompt);
     } else {
       showPromptNotice(`Pipeline Error: ${res?.error || 'Could not launch chatbot'}`, 'error');
     }
@@ -1594,6 +1618,7 @@ async function handleRunChatbotPrompt() {
 
     if (res?.success) {
       showPromptNotice(`✓ Sent to ${botName}! Opened in a new tab.`, 'success');
+      showPromptSuccessScreen(bot, resolved);
       setTimeout(() => {
         if (el.promptRunNotice.textContent.includes('Opened in a new tab')) {
           el.promptRunNotice.style.display = 'none';
@@ -1605,6 +1630,54 @@ async function handleRunChatbotPrompt() {
   } catch (err) {
     showPromptNotice(`Error: ${err.message}`, 'error');
   }
+}
+
+function showPromptSuccessScreen(targetBot, resolvedPrompt) {
+  lastDispatchedBot = targetBot || promptSettings.selectedChatbot || 'chatgpt';
+  lastDispatchedPrompt = resolvedPrompt || getResolvedPrompt();
+
+  const botConfig = CHATBOT_TARGETS[lastDispatchedBot] || CHATBOT_TARGETS.chatgpt;
+  const botName = botConfig.name;
+  const channel = promptSettings.selectedChannel || 'My News Channel';
+
+  const headlines = (el.promptTitles.value || '')
+    .split('\n')
+    .map(t => t.trim())
+    .filter(Boolean);
+  const headlineCount = headlines.length;
+
+  const words = lastDispatchedPrompt.split(/\s+/).filter(Boolean).length;
+  const chars = lastDispatchedPrompt.length;
+
+  if (el.promptSuccessBotName) el.promptSuccessBotName.textContent = botName;
+  if (el.promptSuccessBotLogo) el.promptSuccessBotLogo.src = `../../icons/${lastDispatchedBot}.png`;
+  if (el.promptSuccessBotLabel) el.promptSuccessBotLabel.textContent = botName;
+  if (el.promptSuccessChannelLabel) el.promptSuccessChannelLabel.textContent = channel;
+  if (el.promptSuccessReopenLabel) el.promptSuccessReopenLabel.textContent = botName;
+
+  if (el.promptSuccessHeadlines) el.promptSuccessHeadlines.textContent = headlineCount;
+  if (el.promptSuccessBotStat) {
+    el.promptSuccessBotStat.textContent = lastDispatchedBot === 'chatgpt' ? 'GPT' : (lastDispatchedBot === 'claude' ? 'Claude' : 'Gemini');
+  }
+  if (el.promptSuccessWords) el.promptSuccessWords.textContent = words.toLocaleString();
+  if (el.promptSuccessChars) el.promptSuccessChars.textContent = fmtChars(chars);
+
+  if (el.promptInputView) el.promptInputView.hidden = true;
+  if (el.promptSuccessScreen) {
+    el.promptSuccessScreen.hidden = false;
+    el.promptSuccessScreen.style.display = 'none';
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        el.promptSuccessScreen.style.display = 'flex';
+      });
+    });
+  }
+}
+
+function resetPromptToStart() {
+  if (el.promptSuccessScreen) el.promptSuccessScreen.hidden = true;
+  if (el.promptInputView) el.promptInputView.hidden = false;
+  if (el.promptTitles) el.promptTitles.focus({ preventScroll: true });
 }
 
 function setupPromptListeners() {
@@ -1868,5 +1941,51 @@ function setupPromptListeners() {
 
   // Run in Chatbot
   el.btnRunChatbotPrompt.addEventListener('click', handleRunChatbotPrompt);
+
+  // Prompt Success Screen Actions
+  el.btnCopySuccessPrompt?.addEventListener('click', async () => {
+    const textToCopy = lastDispatchedPrompt || getResolvedPrompt();
+    try {
+      await navigator.clipboard.writeText(textToCopy);
+      const orig = el.btnCopySuccessPrompt.innerHTML;
+      el.btnCopySuccessPrompt.textContent = '✓ Copied to clipboard!';
+      setTimeout(() => { el.btnCopySuccessPrompt.innerHTML = orig; }, 2000);
+    } catch {
+      showPromptNotice('Clipboard access blocked. Please copy manually.', 'error');
+    }
+  });
+
+  el.btnOpenSuccessPreviewModal?.addEventListener('click', () => {
+    openPromptPreviewModal();
+  });
+
+  el.btnReopenChatbotTab?.addEventListener('click', async () => {
+    const bot = lastDispatchedBot || promptSettings.selectedChatbot || 'chatgpt';
+    const promptText = lastDispatchedPrompt || getResolvedPrompt();
+    const autoSubmit = el.promptAutoSubmit ? el.promptAutoSubmit.checked !== false : true;
+    const botName = CHATBOT_TARGETS[bot]?.name || 'Chatbot';
+
+    const orig = el.btnReopenChatbotTab.innerHTML;
+    el.btnReopenChatbotTab.textContent = `🚀 Re-opening in ${botName}...`;
+
+    try {
+      const res = await sendMessage(MESSAGE_TYPES.RUN_CHATBOT_PROMPT, {
+        target: bot,
+        prompt: promptText,
+        autoSubmit
+      });
+      if (res?.success) {
+        el.btnReopenChatbotTab.textContent = `✓ Opened in ${botName}!`;
+      } else {
+        el.btnReopenChatbotTab.textContent = 'Failed to reopen';
+      }
+    } catch {
+      el.btnReopenChatbotTab.textContent = 'Error reopening';
+    }
+    setTimeout(() => { el.btnReopenChatbotTab.innerHTML = orig; }, 2500);
+  });
+
+  el.btnPromptStartAgain?.addEventListener('click', resetPromptToStart);
 }
+
 
