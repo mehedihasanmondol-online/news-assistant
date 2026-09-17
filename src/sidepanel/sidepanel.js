@@ -84,6 +84,7 @@ const el = {
   articleSettingsBody: document.getElementById('articleSettingsBody'),
   articleExcludeWords: document.getElementById('articleExcludeWords'),
   skipLinkHeavy: document.getElementById('skipLinkHeavy'),
+  articleMaxRetries: document.getElementById('articleMaxRetries'),
   btnSaveArticleSettings: document.getElementById('btnSaveArticleSettings'),
   articleSaveStatus: document.getElementById('articleSaveStatus'),
   articleControls: document.getElementById('articleControls'),
@@ -95,6 +96,8 @@ const el = {
   articleSuccessChars: document.getElementById('articleSuccessChars'),
   btnCopyAllHeadings: document.getElementById('btnCopyAllHeadings'),
   btnCopySuccessResults: document.getElementById('btnCopySuccessResults'),
+  btnRetryFailedArticles: document.getElementById('btnRetryFailedArticles'),
+  btnRetryFailedQueue: document.getElementById('btnRetryFailedQueue'),
   btnArticleStartAgain: document.getElementById('btnArticleStartAgain'),
   btnClearArticleCopy: document.getElementById('btnClearArticleCopy'),
   btnClearArticleQueue: document.getElementById('btnClearArticleQueue'),
@@ -352,6 +355,7 @@ async function loadArticleSettings() {
   const s = { ...DEFAULT_ARTICLE_SETTINGS, ...(data.articleCopySettings || {}) };
   el.articleExcludeWords.value = s.excludedWords;
   el.skipLinkHeavy.checked = s.skipLinkHeavy;
+  if (el.articleMaxRetries) el.articleMaxRetries.value = s.maxRetries ?? 3;
   el.testMode.checked = s.testMode || false;
   el.testDelaySeconds.value = s.testDelaySeconds || 2;
   el.testDelayRow.style.display = el.testMode.checked ? '' : 'none';
@@ -369,6 +373,7 @@ function readArticleSettings() {
   return {
     excludedWords: el.articleExcludeWords.value,
     skipLinkHeavy: el.skipLinkHeavy.checked,
+    maxRetries: parseInt(el.articleMaxRetries?.value, 10) || 3,
     testMode: el.testMode.checked,
     testDelaySeconds: parseInt(el.testDelaySeconds.value, 10) || 5,
     autoDownloadImages: el.autoDownloadImages ? el.autoDownloadImages.checked : true,
@@ -524,6 +529,8 @@ function setupListeners() {
   };
   el.btnResetCopyStatusSuccess?.addEventListener('click', handleResetCopyStatus);
   el.btnResetCopyStatusQueue?.addEventListener('click', handleResetCopyStatus);
+  el.btnRetryFailedArticles?.addEventListener('click', retryFailedArticles);
+  el.btnRetryFailedQueue?.addEventListener('click', retryFailedArticles);
   updateArticleLinkCount();
 }
 
@@ -1052,14 +1059,39 @@ function renderArticleCopyState(state) {
   const isCompleted = state.status === 'completed' && !articleSuccessDismissed && !articleCopyStarting;
   const copied = queue.filter((item) => item.status === 'copied');
   const failed = queue.filter((item) => item.status === 'failed');
-  el.articleStatus.textContent = isCopying ? (active?.status === 'loading' ? 'Opening page…' : 'Finding article…') : articleStatusText(state.status, queue);
+
+  let currentStatusText = articleStatusText(state.status, queue);
+  if (isCopying) {
+    if (active?.status === 'loading') {
+      currentStatusText = 'Opening page…';
+    } else if (active?.status === 'retrying') {
+      currentStatusText = `Retrying link (${active.retryCount || 1}/${state.maxRetries || 3})…`;
+    } else if (active?.status === 'extracting') {
+      currentStatusText = 'Finding article…';
+    } else {
+      currentStatusText = 'Opening page…';
+    }
+  }
+  el.articleStatus.textContent = currentStatusText;
   el.articleProgress.textContent = `${completed} / ${queue.length}`;
   el.articleProgressBar.style.width = `${queue.length ? Math.round((completed / queue.length) * 100) : 0}%`;
-  el.articleCurrentUrl.textContent = active?.url || (queue.length ? 'Copying is finished. You can copy all extracted text now.' : 'The source page will scroll to the highlighted article area while it is being copied.');
+  el.articleCurrentUrl.textContent = active?.url
+    ? `${active.url}${active.status === 'retrying' ? ` (Retry ${active.retryCount || 1}/${state.maxRetries || 3})` : ''}`
+    : (queue.length ? 'Copying is finished. You can copy all extracted text now.' : 'The source page will scroll to the highlighted article area while it is being copied.');
   el.btnStartArticleCopy.disabled = isCopying;
   el.btnStopArticleCopy.disabled = !isCopying;
   el.btnCopyResults.disabled = !state.copiedText;
   el.btnCopyAllHeadingsMain.disabled = !state.copiedText;
+
+  if (el.btnRetryFailedArticles) {
+    el.btnRetryFailedArticles.hidden = failed.length === 0 || isCopying;
+    el.btnRetryFailedArticles.textContent = `🔁 Retry failed (${failed.length})`;
+  }
+  if (el.btnRetryFailedQueue) {
+    el.btnRetryFailedQueue.hidden = failed.length === 0 || isCopying;
+    el.btnRetryFailedQueue.textContent = `Retry failed (${failed.length})`;
+  }
+
   el.articleSuccessScreen.hidden = !isCompleted;
   if (isCompleted) {
     el.articleInputCard.hidden = true;
@@ -1155,9 +1187,28 @@ function renderArticleCopyState(state) {
   el.articleQueueList.innerHTML = queue.map((item, index) => {
     const cls = index === state.currentIndex ? 'is-active' : `is-${item.status}`;
     const label = item.title || item.url;
-    const meta = item.status === 'copied' ? `${item.words} words · ${fmtChars(item.chars || 0)} chars` : (item.error || item.status);
+    let meta = '';
+    if (item.status === 'copied') {
+      meta = `${item.words} words · ${fmtChars(item.chars || 0)} chars`;
+    } else if (item.status === 'retrying') {
+      meta = item.error || `Retrying (${item.retryCount || 1}/${state.maxRetries || 3})...`;
+    } else {
+      meta = item.error || item.status;
+    }
+
     if (item.status !== 'copied') {
-      return `<div class="article-queue-item ${cls}"><span class="article-queue-icon">${articleIcon(item.status)}</span><div><div class="article-queue-title">${escHtml(label)}</div><div class="article-queue-meta">${escHtml(meta)}</div></div></div>`;
+      const isFailed = item.status === 'failed';
+      const retryBtnHtml = isFailed && !isCopying
+        ? `<button class="result-action btn-retry-item" type="button" data-retry-index="${index}" title="Retry this link">Retry</button>`
+        : '';
+      return `<div class="article-queue-item ${cls}">
+        <span class="article-queue-icon">${articleIcon(item.status)}</span>
+        <div class="article-queue-info">
+          <div class="article-queue-title">${escHtml(label)}</div>
+          <div class="article-queue-meta">${escHtml(meta)}</div>
+        </div>
+        ${retryBtnHtml}
+      </div>`;
     }
     const expanded = expandedArticleIndexes.has(index);
     const isHeadingCopied = copiedHeadingIndexes.has(index);
@@ -1214,7 +1265,7 @@ function articleStatusText(status, queue) {
 }
 
 function articleIcon(status) {
-  return ({ pending: '○', loading: '◌', extracting: '◌', copied: '✓', failed: '✕' })[status] || '○';
+  return ({ pending: '○', loading: '◌', extracting: '◌', retrying: '🔄', copied: '✓', failed: '✕' })[status] || '○';
 }
 
 async function copyArticleResults(event) {
@@ -1276,6 +1327,18 @@ async function copyAllHeadings(event) {
 }
 
 async function handleArticleResultClick(event) {
+  const retryBtn = event.target.closest('[data-retry-index]');
+  if (retryBtn) {
+    const index = Number(retryBtn.dataset.retryIndex);
+    const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    const options = readArticleSettings();
+    articleSuccessDismissed = false;
+    articleCopyWasRunning = true;
+    await sendMessage(MESSAGE_TYPES.RETRY_ARTICLE_ITEM, { index, tabId: activeTab?.id, options });
+    refreshArticleCopyState();
+    return;
+  }
+
   const toggle = event.target.closest('[data-result-toggle]');
   if (toggle) {
     const card = toggle.closest('.article-result');
@@ -1324,14 +1387,26 @@ function resetArticleCopy() {
   autoImageTriggeredRunId = null;  // Reset so auto-download can trigger again for next run
   el.articleSuccessScreen.hidden = true;
   el.articleInputCard.hidden = false;
-  el.articleControls.hidden = false;
+  el.articleSettingsSection.hidden = false;
+  el.articleControlsWrapper.hidden = false;
   el.articleControls.classList.remove('is-copying');
+  el.articleProgressBar.closest('.article-progress-card').hidden = true;
+  el.articleQueueList.closest('.article-queue-card').hidden = false;
   el.articleLinks.value = '';
   updateArticleLinkCount();
   el.articleStatus.textContent = 'Ready to copy';
   el.articleProgress.textContent = '0 / 0';
   el.articleProgressBar.style.width = '0%';
   el.articleCurrentUrl.textContent = 'The source page will scroll to the highlighted article area while it is being copied.';
+}
+
+async function retryFailedArticles() {
+  const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  const options = readArticleSettings();
+  articleSuccessDismissed = false;
+  articleCopyWasRunning = true;
+  await sendMessage(MESSAGE_TYPES.RETRY_FAILED_ARTICLES, { tabId: activeTab?.id, options });
+  refreshArticleCopyState();
 }
 
 function showArticleNotice(message) {

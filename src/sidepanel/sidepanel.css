@@ -198,13 +198,29 @@ body {
 .article-queue-list { overflow-y: auto; }
 .article-queue-list::-webkit-scrollbar { width: 5px; }
 .article-queue-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
-.article-queue-item { display: grid; grid-template-columns: 22px 1fr; gap: 7px; padding: 9px 12px; border-top: 1px solid rgba(255,255,255,.05); }
+.article-queue-item { display: grid; grid-template-columns: 22px 1fr auto; gap: 7px; align-items: center; padding: 9px 12px; border-top: 1px solid rgba(255,255,255,.05); }
 .article-queue-item.is-active { background: rgba(79,70,229,.1); border-left: 2px solid var(--primary); }
+.article-queue-item.is-retrying { background: rgba(245, 158, 11, 0.08); border-left: 2px solid var(--warning); }
 .article-queue-icon { text-align: center; color: var(--text-muted); }
 .article-queue-item.is-copied .article-queue-icon { color: var(--success); }
 .article-queue-item.is-failed .article-queue-icon { color: var(--danger); }
+.article-queue-item.is-retrying .article-queue-icon { color: var(--warning); display: inline-block; animation: spinSlow 1.4s infinite linear; }
+.article-queue-info { min-width: 0; }
 .article-queue-title { color: var(--text); font-size: 11px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .article-queue-meta { color: var(--text-muted); font-size: 10px; margin-top: 2px; }
+.btn-retry-item {
+  border-color: rgba(245, 158, 11, 0.4);
+  color: var(--warning);
+  background: var(--warning-bg);
+  padding: 3px 8px;
+  font-size: 10px;
+  border-radius: 4px;
+}
+.btn-retry-item:hover {
+  border-color: var(--warning);
+  background: rgba(245, 158, 11, 0.25);
+  color: #fef08a;
+}
 
 /* Copied article accordion */
 .article-result { border-top: 1px solid var(--border); background: var(--bg-input); }

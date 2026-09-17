@@ -61,7 +61,7 @@ export class ArticleCopyManager {
     this.tabId = tabId;
     this.state.runId = this.runId;
 
-    const newItems = links.map((url) => ({ url, status: 'pending', title: '', content: '', words: 0, chars: 0, error: '' }));
+    const newItems = links.map((url) => ({ url, status: 'pending', title: '', content: '', words: 0, chars: 0, error: '', retryCount: 0 }));
     this.state.queue = (this.state.queue || []).concat(newItems);
     this.state.status = 'copying';
     this.saveState();
@@ -70,33 +70,160 @@ export class ArticleCopyManager {
     this._processQueue(options).catch(e => console.error('Queue error:', e));
   }
 
+  _rebuildCopiedText() {
+    this.state.copiedText = (this.state.queue || [])
+      .filter((item) => item.status === 'copied' && item.content)
+      .map((item) => item.content)
+      .join('\n\n');
+  }
+
+  async retryFailed(tabId, options = {}) {
+    await this.initPromise;
+    if (this.state.status === 'copying') return;
+    if (tabId) this.tabId = tabId;
+    if (!this.tabId) {
+      const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (activeTab?.id) this.tabId = activeTab.id;
+    }
+    if (!this.tabId) throw new Error('No browser tab is available for opening the links.');
+
+    this.runId += 1;
+    this.stopped = false;
+    this.state.runId = this.runId;
+
+    let hasFailed = false;
+    for (const item of this.state.queue || []) {
+      if (item.status === 'failed') {
+        item.status = 'pending';
+        item.retryCount = 0;
+        item.error = '';
+        hasFailed = true;
+      }
+    }
+    if (!hasFailed) return;
+
+    this.state.status = 'copying';
+    this.saveState();
+    this._processQueue(options).catch(e => console.error('Queue error:', e));
+  }
+
+  async retryItem(index, tabId, options = {}) {
+    await this.initPromise;
+    if (this.state.status === 'copying') return;
+    if (tabId) this.tabId = tabId;
+    if (!this.tabId) {
+      const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (activeTab?.id) this.tabId = activeTab.id;
+    }
+    if (!this.tabId) throw new Error('No browser tab is available for opening the links.');
+
+    const item = this.state.queue?.[index];
+    if (!item) return;
+
+    this.runId += 1;
+    this.stopped = false;
+    this.state.runId = this.runId;
+
+    item.status = 'pending';
+    item.retryCount = 0;
+    item.error = '';
+    this.state.status = 'copying';
+    this.saveState();
+    this._processQueue(options).catch(e => console.error('Queue error:', e));
+  }
+
   async _processQueue(options) {
+    const maxRetries = options.maxRetries !== undefined ? Number(options.maxRetries) : 3;
+
     for (let index = 0; index < this.state.queue.length && !this.stopped; index += 1) {
       const item = this.state.queue[index];
       if (item.status === 'copied' || item.status === 'failed') {
         continue;
       }
       this.state.currentIndex = index;
-      item.status = 'loading';
-      this.saveState();
-      try {
-        await this.navigateAndWait(item.url);
-        if (this.stopped) break;
-        item.status = 'extracting';
+
+      let success = false;
+      let lastError = null;
+
+      for (let attempt = 0; attempt <= maxRetries && !this.stopped; attempt += 1) {
+        if (attempt > 0) {
+          item.retryCount = attempt;
+          item.status = 'retrying';
+          item.error = `Retrying (${attempt}/${maxRetries}): ${lastError?.message || 'Previous attempt failed'}`;
+          this.saveState();
+          // Brief pause between retries to let the browser/tab settle
+          await new Promise((resolve) => setTimeout(resolve, 1500));
+          if (this.stopped) break;
+        }
+
+        item.status = attempt > 0 ? 'retrying' : 'loading';
         this.saveState();
-        const result = await chrome.tabs.sendMessage(this.tabId, { action: MESSAGE_TYPES.ARTICLE_CONTENT_EXTRACTED, options });
-        if (!result?.text) throw new Error('No article text was found on this page.');
-        item.title = result.title || 'Untitled article';
-        item.content = result.text.trim();
-        item.words = result.text.trim().split(/\s+/).filter(Boolean).length;
-        item.chars = result.text.trim().length;
-        item.status = 'copied';
-        this.state.copiedText += `${this.state.copiedText ? '\n\n' : ''}${result.text.trim()}`;
-      } catch (error) {
-        item.status = 'failed';
-        item.error = error.message || 'Could not read this link.';
+
+        try {
+          await this.navigateAndWait(item.url);
+          if (this.stopped) break;
+
+          item.status = 'extracting';
+          this.saveState();
+
+          if (attempt > 0) {
+            await new Promise((resolve) => setTimeout(resolve, 400));
+          }
+
+          let result;
+          try {
+            result = await chrome.tabs.sendMessage(this.tabId, { action: MESSAGE_TYPES.ARTICLE_CONTENT_EXTRACTED, options });
+          } catch (msgErr) {
+            // If content script was disconnected or not injected, attempt fallback injection
+            if (chrome.scripting) {
+              try {
+                await chrome.scripting.executeScript({
+                  target: { tabId: this.tabId },
+                  files: ['src/content/article-extractor.js']
+                });
+                await new Promise((resolve) => setTimeout(resolve, 400));
+                result = await chrome.tabs.sendMessage(this.tabId, { action: MESSAGE_TYPES.ARTICLE_CONTENT_EXTRACTED, options });
+              } catch {
+                throw msgErr;
+              }
+            } else {
+              throw msgErr;
+            }
+          }
+
+          if (!result?.text) {
+            throw new Error('No article text was found on this page.');
+          }
+
+          item.title = result.title || 'Untitled article';
+          item.content = result.text.trim();
+          item.words = result.text.trim().split(/\s+/).filter(Boolean).length;
+          item.chars = result.text.trim().length;
+          item.status = 'copied';
+          item.error = '';
+          item.retryCount = attempt;
+          this._rebuildCopiedText();
+          success = true;
+          this.saveState();
+          break; // Successfully extracted, break out of retry loop
+
+        } catch (error) {
+          lastError = error;
+          console.warn(`Attempt ${attempt + 1}/${maxRetries + 1} failed for ${item.url}:`, error.message);
+          if (attempt < maxRetries) {
+            item.retryCount = attempt + 1;
+            item.error = `Attempt ${attempt + 1} failed: ${error.message || 'Error'}. Retrying...`;
+            this.saveState();
+          }
+        }
       }
-      this.saveState();
+
+      if (!success && !this.stopped) {
+        item.status = 'failed';
+        item.retryCount = maxRetries;
+        item.error = lastError?.message || `Could not read this link after ${maxRetries} retries.`;
+        this.saveState();
+      }
     }
     this.state.currentIndex = -1;
     this.state.status = this.stopped ? 'stopped' : 'completed';
@@ -111,8 +238,18 @@ export class ArticleCopyManager {
   }
 
   async navigateAndWait(url) {
-    const currentTab = await chrome.tabs.get(this.tabId);
-    const isSameUrl = currentTab.url.replace(/\/+$/, '') === url.replace(/\/+$/, '');
+    let currentTab = null;
+    try {
+      currentTab = await chrome.tabs.get(this.tabId);
+    } catch {
+      const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (activeTab?.id) {
+        this.tabId = activeTab.id;
+        currentTab = activeTab;
+      }
+    }
+    if (!currentTab) throw new Error('No browser tab is available for opening the links.');
+    const isSameUrl = (currentTab.url || '').replace(/\/+$/, '') === url.replace(/\/+$/, '');
 
     return new Promise((resolve, reject) => {
       let isDone = false;
@@ -175,7 +312,8 @@ export class ArticleCopyManager {
       }, 350);
 
       if (isSameUrl) {
-        chrome.tabs.reload(this.tabId).catch(finish);
+        navigationStarted = true;
+        chrome.tabs.reload(this.tabId, { bypassCache: true }).catch(finish);
       } else {
         chrome.tabs.update(this.tabId, { url }).then((tab) => {
           if (tab.status === 'complete') setTimeout(() => finish(), WAIT_AFTER_LOAD_MS);
