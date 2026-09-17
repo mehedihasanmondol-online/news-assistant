@@ -1201,13 +1201,19 @@ function renderArticleCopyState(state) {
       const retryBtnHtml = isFailed && !isCopying
         ? `<button class="result-action btn-retry-item" type="button" data-retry-index="${index}" title="Retry this link">Retry</button>`
         : '';
+      const deleteBtnHtml = !isCopying
+        ? `<button class="result-action result-action-delete" type="button" data-delete-index="${index}" title="Delete this link">🗑️</button>`
+        : '';
       return `<div class="article-queue-item ${cls}">
         <span class="article-queue-icon">${articleIcon(item.status)}</span>
         <div class="article-queue-info">
           <div class="article-queue-title">${escHtml(label)}</div>
           <div class="article-queue-meta">${escHtml(meta)}</div>
         </div>
-        ${retryBtnHtml}
+        <div style="display:flex;align-items:center;gap:4px;">
+          ${retryBtnHtml}
+          ${deleteBtnHtml}
+        </div>
       </div>`;
     }
     const expanded = expandedArticleIndexes.has(index);
@@ -1235,6 +1241,7 @@ function renderArticleCopyState(state) {
           ${isPostCopied ? '<span class="copied-pill copied-pill-post">✓ Post</span>' : ''}
           <button class="${titleBtnClass}" type="button" data-copy-title="${index}">${titleBtnText}</button>
           <button class="${postBtnClass}" type="button" data-copy-post="${index}">${postBtnText}</button>
+          <button class="result-action result-action-delete" type="button" data-delete-index="${index}" title="Delete this article">🗑️ Delete</button>
         </div>
       </div>
       <div class="article-result-body" ${expanded ? '' : 'hidden'}>
@@ -1326,7 +1333,45 @@ async function copyAllHeadings(event) {
   }
 }
 
+function remapIndexSet(set, deletedIndex) {
+  const newSet = new Set();
+  for (const idx of set) {
+    if (idx < deletedIndex) newSet.add(idx);
+    else if (idx > deletedIndex) newSet.add(idx - 1);
+  }
+  set.clear();
+  for (const idx of newSet) set.add(idx);
+}
+
+function remapScrollTops(map, deletedIndex) {
+  const newMap = new Map();
+  for (const [idx, val] of map) {
+    if (idx < deletedIndex) newMap.set(idx, val);
+    else if (idx > deletedIndex) newMap.set(idx - 1, val);
+  }
+  map.clear();
+  for (const [idx, val] of newMap) map.set(idx, val);
+}
+
 async function handleArticleResultClick(event) {
+  const deleteBtn = event.target.closest('[data-delete-index]');
+  if (deleteBtn) {
+    const index = Number(deleteBtn.dataset.deleteIndex);
+    if (!isNaN(index)) {
+      await sendMessage(MESSAGE_TYPES.DELETE_ARTICLE_ITEM, { index });
+      remapIndexSet(copiedPostIndexes, index);
+      remapIndexSet(copiedHeadingIndexes, index);
+      remapIndexSet(expandedArticleIndexes, index);
+      remapScrollTops(articleResultScrollTops, index);
+      if (index < newBatchStartIndex) {
+        newBatchStartIndex = Math.max(0, newBatchStartIndex - 1);
+      }
+      await saveCopiedMarks();
+      await refreshArticleCopyState();
+    }
+    return;
+  }
+
   const retryBtn = event.target.closest('[data-retry-index]');
   if (retryBtn) {
     const index = Number(retryBtn.dataset.retryIndex);

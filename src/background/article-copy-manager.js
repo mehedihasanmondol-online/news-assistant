@@ -132,6 +132,30 @@ export class ArticleCopyManager {
     this._processQueue(options).catch(e => console.error('Queue error:', e));
   }
 
+  async deleteItem(index) {
+    await this.initPromise;
+    if (index < 0 || index >= (this.state.queue || []).length) return false;
+
+    this.state.queue.splice(index, 1);
+
+    if (this.state.currentIndex === index) {
+      this.state.currentIndex = -1;
+    } else if (this.state.currentIndex > index) {
+      this.state.currentIndex -= 1;
+    }
+
+    if (this.state.queue.length === 0) {
+      this.state.status = 'idle';
+      this.state.copiedText = '';
+      this.state.currentIndex = -1;
+    } else {
+      this._rebuildCopiedText();
+    }
+
+    await this.saveState();
+    return true;
+  }
+
   async _processQueue(options) {
     const maxRetries = options.maxRetries !== undefined ? Number(options.maxRetries) : 3;
 

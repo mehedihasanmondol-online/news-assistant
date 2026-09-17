@@ -83,6 +83,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         sendResponse({ success: true });
         break;
 
+      case MESSAGE_TYPES.DELETE_ARTICLE_ITEM:
+        await articleCopyManager.deleteItem(request.payload?.index);
+        sendResponse({ success: true });
+        break;
+
       case MESSAGE_TYPES.RUN_CHATBOT_PROMPT: {
         const { target, prompt, autoSubmit, runId } = request.payload || {};
         const botConfig = CHATBOT_TARGETS[target] || CHATBOT_TARGETS.chatgpt;
