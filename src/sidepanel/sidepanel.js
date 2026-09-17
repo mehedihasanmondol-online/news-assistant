@@ -1155,10 +1155,10 @@ function sendMessage(action, payload = {}) {
 // AI Prompt Hub Feature (YouTube News Package)
 // ==========================================================================
 let promptSettings = {
-  version: 2,
+  version: 4,
   selectedChatbot: 'chatgpt',
-  selectedChannel: 'My YouTube Channel',
-  customChannels: [],
+  selectedChannel: 'My News Channel',
+  channels: ['My News Channel', 'BD News Express'],
   autoSubmit: true,
   activePresetId: 'preset-youtube-package',
   presets: JSON.parse(JSON.stringify(DEFAULT_PROMPT_PRESETS))
@@ -1171,26 +1171,25 @@ async function loadPromptSettings() {
       const s = data.promptAssistantSettings;
       promptSettings.version = s.version || 1;
       promptSettings.selectedChatbot = s.selectedChatbot || 'chatgpt';
-      promptSettings.selectedChannel = s.selectedChannel || DEFAULT_CHANNELS[0];
-      promptSettings.customChannels = Array.isArray(s.customChannels) ? s.customChannels : [];
       promptSettings.autoSubmit = s.autoSubmit !== false;
 
-      // Migrate to v2 YouTube package presets if missing or old version
-      const hasYoutubePackage = Array.isArray(s.presets) && s.presets.some(p => p.id === 'preset-youtube-package');
-      if (!hasYoutubePackage || s.version !== 2) {
-        const defaultIds = new Set(DEFAULT_PROMPT_PRESETS.map(p => p.id));
-        const userCustomPresets = (s.presets || []).filter(p => !defaultIds.has(p.id) && !['preset-youtube-script', 'preset-social-posts', 'preset-voiceover-narration', 'preset-summary-brief'].includes(p.id));
-        promptSettings.presets = [...JSON.parse(JSON.stringify(DEFAULT_PROMPT_PRESETS)), ...userCustomPresets];
-        promptSettings.activePresetId = 'preset-youtube-package';
-        promptSettings.version = 2;
-        if (['Jamuna TV', 'Somoy TV', 'Channel 24'].includes(promptSettings.selectedChannel)) {
-          promptSettings.selectedChannel = DEFAULT_CHANNELS[0];
-        }
-        await savePromptSettings();
+      // Channels: Respect user's saved channels (do not force re-add deleted defaults)
+      if (Array.isArray(s.channels)) {
+        promptSettings.channels = s.channels;
+      } else if (Array.isArray(s.customChannels) && s.customChannels.length > 0) {
+        promptSettings.channels = s.customChannels;
       } else {
-        promptSettings.presets = s.presets;
-        promptSettings.activePresetId = s.activePresetId || 'preset-youtube-package';
+        promptSettings.channels = [...DEFAULT_CHANNELS];
       }
+
+      promptSettings.selectedChannel = promptSettings.channels.includes(s.selectedChannel)
+        ? s.selectedChannel
+        : (promptSettings.channels[0] || '');
+
+      promptSettings.presets = Array.isArray(s.presets) && s.presets.length > 0
+        ? s.presets
+        : JSON.parse(JSON.stringify(DEFAULT_PROMPT_PRESETS));
+      promptSettings.activePresetId = s.activePresetId || 'preset-youtube-package';
     }
   } catch (e) {
     console.warn('Failed to load prompt settings:', e);
@@ -1230,19 +1229,28 @@ function renderPromptChatbotUI() {
 }
 
 function renderPromptChannels() {
-  const allChannels = [...DEFAULT_CHANNELS, ...promptSettings.customChannels];
-  el.promptChannelSelect.innerHTML = allChannels.map((ch) => {
-    const isSelected = ch === promptSettings.selectedChannel;
-    return `<option value="${escHtml(ch)}" ${isSelected ? 'selected' : ''}>${escHtml(ch)}</option>`;
-  }).join('');
-
-  if (!allChannels.includes(promptSettings.selectedChannel)) {
-    promptSettings.selectedChannel = allChannels[0] || 'Jamuna TV';
-    el.promptChannelSelect.value = promptSettings.selectedChannel;
+  if (!Array.isArray(promptSettings.channels)) {
+    promptSettings.channels = [];
   }
 
-  const isCustom = promptSettings.customChannels.includes(promptSettings.selectedChannel);
-  el.btnDeleteChannel.disabled = !isCustom;
+  if (promptSettings.channels.length > 0) {
+    el.promptChannelSelect.innerHTML = promptSettings.channels.map((ch) => {
+      const isSelected = ch === promptSettings.selectedChannel;
+      return `<option value="${escHtml(ch)}" ${isSelected ? 'selected' : ''}>${escHtml(ch)}</option>`;
+    }).join('');
+
+    if (!promptSettings.channels.includes(promptSettings.selectedChannel)) {
+      promptSettings.selectedChannel = promptSettings.channels[0];
+      el.promptChannelSelect.value = promptSettings.selectedChannel;
+    }
+    el.btnDeleteChannel.disabled = false;
+    el.btnDeleteChannel.title = 'Delete this channel';
+  } else {
+    el.promptChannelSelect.innerHTML = '<option value="">(No channel - Click ➕ to add)</option>';
+    promptSettings.selectedChannel = '';
+    el.btnDeleteChannel.disabled = true;
+    el.btnDeleteChannel.title = 'No channel to delete';
+  }
 }
 
 function renderPromptPresets() {
@@ -1273,7 +1281,7 @@ function updatePromptTitleCount() {
 
 function getResolvedPrompt() {
   const template = el.promptTemplate.value || '';
-  const channel = promptSettings.selectedChannel || 'My YouTube Channel';
+  const channel = promptSettings.selectedChannel || 'My News Channel';
   const titles = el.promptTitles.value.trim() || '— [Enter news headlines above] —';
 
   return template
@@ -1377,8 +1385,6 @@ function setupPromptListeners() {
   // Channel Selection
   el.promptChannelSelect.addEventListener('change', () => {
     promptSettings.selectedChannel = el.promptChannelSelect.value;
-    const isCustom = promptSettings.customChannels.includes(promptSettings.selectedChannel);
-    el.btnDeleteChannel.disabled = !isCustom;
     updatePromptPreview();
     savePromptSettings();
   });
@@ -1401,13 +1407,10 @@ function setupPromptListeners() {
   el.btnSaveNewChannel.addEventListener('click', async () => {
     const name = el.newChannelName.value.trim();
     if (!name) return;
-    const allChannels = [...DEFAULT_CHANNELS, ...promptSettings.customChannels];
-    if (allChannels.includes(name)) {
-      promptSettings.selectedChannel = name;
-    } else {
-      promptSettings.customChannels.push(name);
-      promptSettings.selectedChannel = name;
+    if (!promptSettings.channels.includes(name)) {
+      promptSettings.channels.push(name);
     }
+    promptSettings.selectedChannel = name;
     el.addChannelBox.style.display = 'none';
     el.newChannelName.value = '';
     renderPromptChannels();
@@ -1416,14 +1419,23 @@ function setupPromptListeners() {
   });
 
   el.btnDeleteChannel.addEventListener('click', async () => {
+    if (!promptSettings.channels || promptSettings.channels.length === 0) return;
     const current = promptSettings.selectedChannel;
-    if (promptSettings.customChannels.includes(current)) {
-      promptSettings.customChannels = promptSettings.customChannels.filter(c => c !== current);
-      promptSettings.selectedChannel = DEFAULT_CHANNELS[0];
-      renderPromptChannels();
-      updatePromptPreview();
-      await savePromptSettings();
+    promptSettings.channels = promptSettings.channels.filter(c => c !== current);
+    promptSettings.selectedChannel = promptSettings.channels.length > 0 ? promptSettings.channels[0] : '';
+    renderPromptChannels();
+    updatePromptPreview();
+    await savePromptSettings();
+    showPromptNotice(`Deleted channel "${current}".`, 'info');
+    if (promptSettings.channels.length === 0) {
+      el.addChannelBox.style.display = 'flex';
+      el.newChannelName.focus();
     }
+    setTimeout(() => {
+      if (el.promptRunNotice.textContent.includes('Deleted channel')) {
+        el.promptRunNotice.style.display = 'none';
+      }
+    }, 2500);
   });
 
   // Titles Input & Quick Actions
@@ -1547,6 +1559,9 @@ function setupPromptListeners() {
   el.btnResetDefaultPresets?.addEventListener('click', async () => {
     promptSettings.presets = JSON.parse(JSON.stringify(DEFAULT_PROMPT_PRESETS));
     promptSettings.activePresetId = 'preset-youtube-package';
+    promptSettings.channels = [...DEFAULT_CHANNELS];
+    promptSettings.selectedChannel = promptSettings.channels[0];
+    renderPromptChannels();
     renderPromptPresets();
     updatePromptPreview();
     await savePromptSettings();

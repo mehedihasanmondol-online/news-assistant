@@ -55,12 +55,8 @@ export const CHATBOT_TARGETS = {
 };
 
 export const DEFAULT_CHANNELS = [
-  'My YouTube Channel',
-  'BD News Express',
-  'Daily News Tube',
-  'News Flash BD',
-  'Bangla News Hub',
-  'World News BD'
+  'My News Channel',
+  'BD News Express'
 ];
 
 export const DEFAULT_PROMPT_PRESETS = [
@@ -143,10 +139,10 @@ Deliver:
 ];
 
 export const DEFAULT_PROMPT_SETTINGS = {
-  version: 2,
+  version: 4,
   selectedChatbot: 'chatgpt',
-  selectedChannel: 'My YouTube Channel',
-  customChannels: [],
+  selectedChannel: 'My News Channel',
+  channels: ['My News Channel', 'BD News Express'],
   autoSubmit: true,
   activePresetId: 'preset-youtube-package'
 };
