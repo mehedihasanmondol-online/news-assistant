@@ -208,6 +208,8 @@ const copiedPostIndexes = new Set();
 const copiedHeadingIndexes = new Set();
 let lastDispatchedPrompt = '';
 let lastDispatchedBot = 'chatgpt';
+let activePromptRunId = null;
+let promptRunTimeout = null;
 
 async function loadCopiedMarks() {
   try {
@@ -973,18 +975,56 @@ function triggerAutoChatbotPrompt(titlesList = null) {
   const resolvedPrompt = getResolvedPrompt();
   const autoSubmit = el.promptAutoSubmit ? el.promptAutoSubmit.checked !== false : true;
 
+  lastDispatchedBot = targetBot;
+  lastDispatchedPrompt = resolvedPrompt;
+
+  const runId = 'prompt-run-' + Date.now();
+  activePromptRunId = runId;
+  const botName = CHATBOT_TARGETS[targetBot]?.name || targetBot;
+
+  if (el.btnRunChatbotPrompt) {
+    el.btnRunChatbotPrompt.disabled = true;
+    el.btnRunChatbotPrompt.classList.add('is-running');
+    el.btnRunChatbotPrompt.innerHTML = `<span class="btn-spinner">⏳</span> Opening ${botName}...`;
+  }
+
+  showPromptNotice(`Pipeline: Opening ${botName}... Waiting for prompt to enter into chatbot.`, 'info');
+
   sendMessage(MESSAGE_TYPES.RUN_CHATBOT_PROMPT, {
     target: targetBot,
     prompt: resolvedPrompt,
-    autoSubmit
+    autoSubmit,
+    runId
   }).then((res) => {
     if (res?.success) {
-      showPromptNotice(`✓ Prompt dispatched to ${CHATBOT_TARGETS[targetBot]?.name || targetBot}!`, 'success');
-      showPromptSuccessScreen(targetBot, resolvedPrompt);
+      clearTimeout(promptRunTimeout);
+      promptRunTimeout = setTimeout(() => {
+        if (activePromptRunId === runId) {
+          activePromptRunId = null;
+          if (el.btnRunChatbotPrompt) {
+            el.btnRunChatbotPrompt.disabled = false;
+            el.btnRunChatbotPrompt.classList.remove('is-running');
+            renderPromptChatbotUI();
+          }
+          showPromptNotice(`Pipeline: Still waiting for ${botName}. If the tab is ready, check your prompt.`, 'info');
+        }
+      }, 45000);
     } else {
+      activePromptRunId = null;
+      if (el.btnRunChatbotPrompt) {
+        el.btnRunChatbotPrompt.disabled = false;
+        el.btnRunChatbotPrompt.classList.remove('is-running');
+        renderPromptChatbotUI();
+      }
       showPromptNotice(`Pipeline Error: ${res?.error || 'Could not launch chatbot'}`, 'error');
     }
   }).catch((err) => {
+    activePromptRunId = null;
+    if (el.btnRunChatbotPrompt) {
+      el.btnRunChatbotPrompt.disabled = false;
+      el.btnRunChatbotPrompt.classList.remove('is-running');
+      renderPromptChatbotUI();
+    }
     showPromptNotice(`Pipeline Error: ${err.message}`, 'error');
   });
 }
@@ -1607,28 +1647,128 @@ async function handleRunChatbotPrompt() {
   const autoSubmit = el.promptAutoSubmit.checked;
   const botName = CHATBOT_TARGETS[bot]?.name || 'Chatbot';
 
-  showPromptNotice(`Opening ${botName} and preparing prompt...`, 'info');
+  lastDispatchedBot = bot;
+  lastDispatchedPrompt = resolved;
+
+  const runId = 'prompt-run-' + Date.now();
+  activePromptRunId = runId;
+
+  if (el.btnRunChatbotPrompt) {
+    el.btnRunChatbotPrompt.disabled = true;
+    el.btnRunChatbotPrompt.classList.add('is-running');
+    el.btnRunChatbotPrompt.innerHTML = `<span class="btn-spinner">⏳</span> Opening ${botName}...`;
+  }
+
+  showPromptNotice(`Opening ${botName} in a new tab... Waiting for prompt to enter into chatbot.`, 'info');
 
   try {
     const res = await sendMessage(MESSAGE_TYPES.RUN_CHATBOT_PROMPT, {
       target: bot,
       prompt: resolved,
-      autoSubmit
+      autoSubmit,
+      runId
     });
 
     if (res?.success) {
-      showPromptNotice(`✓ Sent to ${botName}! Opened in a new tab.`, 'success');
-      showPromptSuccessScreen(bot, resolved);
-      setTimeout(() => {
-        if (el.promptRunNotice.textContent.includes('Opened in a new tab')) {
-          el.promptRunNotice.style.display = 'none';
+      clearTimeout(promptRunTimeout);
+      promptRunTimeout = setTimeout(() => {
+        if (activePromptRunId === runId) {
+          activePromptRunId = null;
+          if (el.btnRunChatbotPrompt) {
+            el.btnRunChatbotPrompt.disabled = false;
+            el.btnRunChatbotPrompt.classList.remove('is-running');
+            renderPromptChatbotUI();
+          }
+          showPromptNotice(`Still waiting for ${botName}. If the page loaded, you can check the tab or paste manually.`, 'info');
         }
-      }, 5000);
+      }, 45000);
     } else {
+      activePromptRunId = null;
+      if (el.btnRunChatbotPrompt) {
+        el.btnRunChatbotPrompt.disabled = false;
+        el.btnRunChatbotPrompt.classList.remove('is-running');
+        renderPromptChatbotUI();
+      }
       showPromptNotice(`Error: ${res?.error || 'Could not launch chatbot'}`, 'error');
     }
   } catch (err) {
+    activePromptRunId = null;
+    if (el.btnRunChatbotPrompt) {
+      el.btnRunChatbotPrompt.disabled = false;
+      el.btnRunChatbotPrompt.classList.remove('is-running');
+      renderPromptChatbotUI();
+    }
     showPromptNotice(`Error: ${err.message}`, 'error');
+  }
+}
+
+function handleChatbotPromptStatusUpdate(data) {
+  if (!data || !data.status) return;
+
+  // If runId is present and doesn't match active run, ignore
+  if (activePromptRunId && data.runId && data.runId !== activePromptRunId) {
+    return;
+  }
+
+  const bot = data.target || lastDispatchedBot || promptSettings.selectedChatbot || 'chatgpt';
+  const botConfig = CHATBOT_TARGETS[bot] || CHATBOT_TARGETS.chatgpt;
+  const botName = botConfig.name;
+
+  if (data.status === 'waiting_input') {
+    if (el.btnRunChatbotPrompt && el.btnRunChatbotPrompt.disabled) {
+      el.btnRunChatbotPrompt.innerHTML = `<span class="btn-spinner">⏳</span> Waiting for ${botName} input...`;
+    }
+    showPromptNotice(`Connected to ${botName}. Waiting for input box to load...`, 'info');
+  } else if (data.status === 'pasting') {
+    if (el.btnRunChatbotPrompt && el.btnRunChatbotPrompt.disabled) {
+      el.btnRunChatbotPrompt.innerHTML = `<span class="btn-spinner">✍️</span> Entering prompt into ${botName}...`;
+    }
+    showPromptNotice(`Typing and formatting prompt into ${botName}...`, 'info');
+  } else if (data.status === 'submitting') {
+    if (el.btnRunChatbotPrompt && el.btnRunChatbotPrompt.disabled) {
+      el.btnRunChatbotPrompt.innerHTML = `<span class="btn-spinner">🚀</span> Submitting prompt in ${botName}...`;
+    }
+    showPromptNotice(`Submitting prompt into ${botName}...`, 'info');
+  } else if (data.status === 'submitted') {
+    // PROMPT IS ACTUALLY ENTERED AND SUBMITTED!
+    if (promptRunTimeout) {
+      clearTimeout(promptRunTimeout);
+      promptRunTimeout = null;
+    }
+    activePromptRunId = null;
+
+    if (el.btnRunChatbotPrompt) {
+      el.btnRunChatbotPrompt.disabled = false;
+      el.btnRunChatbotPrompt.classList.remove('is-running');
+      renderPromptChatbotUI();
+    }
+
+    if (el.btnReopenChatbotTab) {
+      el.btnReopenChatbotTab.disabled = false;
+      el.btnReopenChatbotTab.innerHTML = `🚀 Open in <span id="promptSuccessReopenLabel">${botName}</span> again`;
+    }
+
+    showPromptNotice(`✓ Prompt successfully entered and submitted to ${botName}!`, 'success');
+    showPromptSuccessScreen(bot, data.prompt || lastDispatchedPrompt);
+  } else if (data.status === 'error') {
+    if (promptRunTimeout) {
+      clearTimeout(promptRunTimeout);
+      promptRunTimeout = null;
+    }
+    activePromptRunId = null;
+
+    if (el.btnRunChatbotPrompt) {
+      el.btnRunChatbotPrompt.disabled = false;
+      el.btnRunChatbotPrompt.classList.remove('is-running');
+      renderPromptChatbotUI();
+    }
+
+    if (el.btnReopenChatbotTab) {
+      el.btnReopenChatbotTab.disabled = false;
+      el.btnReopenChatbotTab.innerHTML = `🚀 Open in <span id="promptSuccessReopenLabel">${botName}</span> again`;
+    }
+
+    showPromptNotice(`Could not auto-enter in ${botName}: ${data.message || 'Input not found'}. Please paste manually.`, 'error');
   }
 }
 
@@ -1963,29 +2103,63 @@ function setupPromptListeners() {
     const bot = lastDispatchedBot || promptSettings.selectedChatbot || 'chatgpt';
     const promptText = lastDispatchedPrompt || getResolvedPrompt();
     const autoSubmit = el.promptAutoSubmit ? el.promptAutoSubmit.checked !== false : true;
-    const botName = CHATBOT_TARGETS[bot]?.name || 'Chatbot';
+    const botConfig = CHATBOT_TARGETS[bot] || CHATBOT_TARGETS.chatgpt;
+    const botName = botConfig.name;
 
     const orig = el.btnReopenChatbotTab.innerHTML;
-    el.btnReopenChatbotTab.textContent = `🚀 Re-opening in ${botName}...`;
+    el.btnReopenChatbotTab.innerHTML = `<span class="btn-spinner">⏳</span> Re-opening in ${botName}...`;
+    el.btnReopenChatbotTab.disabled = true;
+
+    const runId = 'prompt-run-' + Date.now();
+    activePromptRunId = runId;
 
     try {
       const res = await sendMessage(MESSAGE_TYPES.RUN_CHATBOT_PROMPT, {
         target: bot,
         prompt: promptText,
-        autoSubmit
+        autoSubmit,
+        runId
       });
-      if (res?.success) {
-        el.btnReopenChatbotTab.textContent = `✓ Opened in ${botName}!`;
-      } else {
+      if (!res?.success) {
+        activePromptRunId = null;
         el.btnReopenChatbotTab.textContent = 'Failed to reopen';
+        el.btnReopenChatbotTab.disabled = false;
+        setTimeout(() => { el.btnReopenChatbotTab.innerHTML = orig; }, 2500);
+      } else {
+        clearTimeout(promptRunTimeout);
+        promptRunTimeout = setTimeout(() => {
+          if (activePromptRunId === runId) {
+            activePromptRunId = null;
+            if (el.btnReopenChatbotTab) {
+              el.btnReopenChatbotTab.disabled = false;
+              el.btnReopenChatbotTab.innerHTML = orig;
+            }
+          }
+        }, 45000);
       }
     } catch {
+      activePromptRunId = null;
       el.btnReopenChatbotTab.textContent = 'Error reopening';
+      el.btnReopenChatbotTab.disabled = false;
+      setTimeout(() => { el.btnReopenChatbotTab.innerHTML = orig; }, 2500);
     }
-    setTimeout(() => { el.btnReopenChatbotTab.innerHTML = orig; }, 2500);
   });
 
   el.btnPromptStartAgain?.addEventListener('click', resetPromptToStart);
+
+  // Listen for real-time prompt status messages from content script
+  chrome.runtime.onMessage.addListener((request) => {
+    if (request.action === MESSAGE_TYPES.CHATBOT_PROMPT_STATUS || request.action === 'CHATBOT_PROMPT_STATUS') {
+      handleChatbotPromptStatusUpdate(request.payload);
+    }
+  });
+
+  // Also listen via storage changes for redundancy
+  chrome.storage.onChanged.addListener((changes, areaName) => {
+    if (areaName === 'local' && changes.chatbotPromptRunStatus?.newValue) {
+      handleChatbotPromptStatusUpdate(changes.chatbotPromptRunStatus.newValue);
+    }
+  });
 }
 
 

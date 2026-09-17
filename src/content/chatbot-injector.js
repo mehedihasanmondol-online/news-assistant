@@ -314,6 +314,29 @@
     return true;
   }
 
+  function notifyPromptStatus(status, message, promptData) {
+    const payload = {
+      status,
+      message,
+      target: currentBot,
+      runId: promptData?.runId || null,
+      prompt: promptData?.prompt || '',
+      autoSubmit: promptData?.autoSubmit !== false,
+      timestamp: Date.now()
+    };
+
+    try {
+      chrome.runtime.sendMessage({
+        action: 'CHATBOT_PROMPT_STATUS',
+        payload
+      }).catch(() => {});
+    } catch {}
+
+    try {
+      chrome.storage.local.set({ chatbotPromptRunStatus: payload }).catch(() => {});
+    } catch {}
+  }
+
   // Main injection runner
   async function runInjection(promptData) {
     if (!promptData || !promptData.prompt) return;
@@ -326,18 +349,22 @@
 
     try {
       showToast(`📰 News Assistant: Preparing prompt for ${currentBot.toUpperCase()}...`, 'info', 6000);
+      notifyPromptStatus('waiting_input', `Waiting for ${currentBot.toUpperCase()} input field...`, promptData);
 
       const inputEl = await waitForElement(findInputContainer, 25000, 300);
       if (!inputEl) {
         showToast('⚠️ Could not find prompt input field. Please paste manually.', 'error', 6000);
+        notifyPromptStatus('error', 'Could not find prompt input field. Please paste manually.', promptData);
         return;
       }
 
       showToast('📝 Pasting prompt...', 'info', 4000);
+      notifyPromptStatus('pasting', `Entering prompt into ${currentBot.toUpperCase()}...`, promptData);
       const pasted = setInputText(inputEl, promptData.prompt);
 
       if (!pasted) {
         showToast('⚠️ Failed to inject text into input field.', 'error', 5000);
+        notifyPromptStatus('error', 'Failed to inject text into input field.', promptData);
         return;
       }
 
@@ -345,11 +372,16 @@
 
       if (promptData.autoSubmit !== false) {
         showToast('🚀 Running prompt...', 'info', 4000);
+        notifyPromptStatus('submitting', `Submitting prompt to ${currentBot.toUpperCase()}...`, promptData);
         await submitPrompt(inputEl);
         showToast(`✓ Prompt submitted to ${currentBot.toUpperCase()}!`, 'success', 5000);
+        notifyPromptStatus('submitted', `Prompt entered and submitted to ${currentBot.toUpperCase()}!`, promptData);
       } else {
         showToast(`✓ Prompt ready in ${currentBot.toUpperCase()}!`, 'success', 5000);
+        notifyPromptStatus('submitted', `Prompt entered and ready in ${currentBot.toUpperCase()}!`, promptData);
       }
+    } catch (err) {
+      notifyPromptStatus('error', err.message || 'Error injecting prompt', promptData);
     } finally {
       isExecuting = false;
     }

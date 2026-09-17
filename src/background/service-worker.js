@@ -74,7 +74,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         break;
 
       case MESSAGE_TYPES.RUN_CHATBOT_PROMPT: {
-        const { target, prompt, autoSubmit } = request.payload || {};
+        const { target, prompt, autoSubmit, runId } = request.payload || {};
         const botConfig = CHATBOT_TARGETS[target] || CHATBOT_TARGETS.chatgpt;
         const targetUrl = botConfig.url;
 
@@ -83,6 +83,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           target: botConfig.id,
           prompt,
           autoSubmit: autoSubmit !== false,
+          runId: runId || ('prompt-run-' + Date.now()),
           timestamp: Date.now()
         };
         await chrome.storage.local.set({ pendingChatbotPrompt: payload });
@@ -115,7 +116,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           setTimeout(() => chrome.tabs.onUpdated.removeListener(tabUpdateListener), 40000);
         }
 
-        sendResponse({ success: true, tabId: tab?.id });
+        sendResponse({ success: true, tabId: tab?.id, runId: payload.runId });
+        break;
+      }
+
+      case MESSAGE_TYPES.CHATBOT_PROMPT_STATUS: {
+        sendResponse({ success: true, acknowledged: true });
         break;
       }
 

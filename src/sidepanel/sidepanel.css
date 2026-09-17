@@ -2217,4 +2217,19 @@ select {
   transform: translateY(-1px);
 }
 
+.btn-spinner {
+  display: inline-block;
+  animation: spinSlow 1.4s infinite linear;
+}
+
+@keyframes spinSlow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.btn-run-prompt.is-running {
+  opacity: 0.85;
+  cursor: wait;
+}
+
 
