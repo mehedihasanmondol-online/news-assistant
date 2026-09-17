@@ -16,7 +16,9 @@ export const DEFAULT_ARTICLE_SETTINGS = {
   excludedWords: 'READ MORE\nRead more\nAlso read\nFollow us\nSign up\nSubscribe\nPhoto:\nCredit:\nImage:\nSponsored\nAdvertisement\nAffiliate\nClick here\nWatch:\nJoin our ',
   skipLinkHeavy: true,
   testMode: false,
-  testDelaySeconds: 5
+  testDelaySeconds: 5,
+  autoDownloadImages: true,
+  autoRunChatbotPrompt: true
 };
 
 export const QUEUE_STATUS = {

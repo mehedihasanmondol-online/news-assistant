@@ -102,6 +102,11 @@ const el = {
   btnResetCopyStatusQueue: document.getElementById('btnResetCopyStatusQueue'),
   articleQueueTotalChars: document.getElementById('articleQueueTotalChars'),
   autoDownloadImages: document.getElementById('autoDownloadImages'),
+  autoRunChatbotPrompt: document.getElementById('autoRunChatbotPrompt'),
+  pipelineChannelSelect: document.getElementById('pipelineChannelSelect'),
+  pipelineChatbotSelect: document.getElementById('pipelineChatbotSelect'),
+  pipelineSettingsRow: document.getElementById('pipelineSettingsRow'),
+  btnStartMasterPipeline: document.getElementById('btnStartMasterPipeline'),
   articleControlsWrapper: document.getElementById('articleControlsWrapper'),
   testMode: document.getElementById('testMode'),
   testDelaySeconds: document.getElementById('testDelaySeconds'),
@@ -173,6 +178,7 @@ let articleCopyStarting = false;
 let articleCopyWasRunning = false;
 let activeArticleRunId = null;
 let autoImageTriggeredRunId = null;
+let autoPromptTriggeredRunId = null;
 let articleRestoredWithData = false; // True when browser reloads with existing saved posts — skips success screen but keeps queue visible
 let newBatchStartIndex = 0; // Queue index where the latest batch of new links starts
 const copiedPostIndexes = new Set();
@@ -296,6 +302,12 @@ function readSettings() {
   };
 }
 
+function updatePipelineSettingsRowVisibility() {
+  if (!el.pipelineSettingsRow) return;
+  const isEnabled = el.autoRunChatbotPrompt ? el.autoRunChatbotPrompt.checked : true;
+  el.pipelineSettingsRow.style.display = isEnabled ? 'grid' : 'none';
+}
+
 async function loadArticleSettings() {
   const data = await chrome.storage.local.get('articleCopySettings');
   const s = { ...DEFAULT_ARTICLE_SETTINGS, ...(data.articleCopySettings || {}) };
@@ -304,6 +316,13 @@ async function loadArticleSettings() {
   el.testMode.checked = s.testMode || false;
   el.testDelaySeconds.value = s.testDelaySeconds || 2;
   el.testDelayRow.style.display = el.testMode.checked ? '' : 'none';
+  if (el.autoDownloadImages) {
+    el.autoDownloadImages.checked = s.autoDownloadImages !== undefined ? !!s.autoDownloadImages : true;
+  }
+  if (el.autoRunChatbotPrompt) {
+    el.autoRunChatbotPrompt.checked = s.autoRunChatbotPrompt !== undefined ? !!s.autoRunChatbotPrompt : true;
+  }
+  updatePipelineSettingsRowVisibility();
 }
 
 function readArticleSettings() {
@@ -311,7 +330,9 @@ function readArticleSettings() {
     excludedWords: el.articleExcludeWords.value,
     skipLinkHeavy: el.skipLinkHeavy.checked,
     testMode: el.testMode.checked,
-    testDelaySeconds: parseInt(el.testDelaySeconds.value, 10) || 5
+    testDelaySeconds: parseInt(el.testDelaySeconds.value, 10) || 5,
+    autoDownloadImages: el.autoDownloadImages ? el.autoDownloadImages.checked : true,
+    autoRunChatbotPrompt: el.autoRunChatbotPrompt ? el.autoRunChatbotPrompt.checked : true
   };
 }
 
@@ -373,11 +394,40 @@ function setupListeners() {
   el.btnCopyAllHeadings.addEventListener('click', copyAllHeadings);
   el.btnCopySuccessResults.addEventListener('click', copyArticleResults);
   el.btnArticleStartAgain.addEventListener('click', resetArticleCopy);
+
+  // Automation Pipeline Listeners
+  el.autoDownloadImages?.addEventListener('change', () => {
+    saveArticleSettings();
+  });
+  el.autoRunChatbotPrompt?.addEventListener('change', () => {
+    updatePipelineSettingsRowVisibility();
+    saveArticleSettings();
+  });
+  el.pipelineChannelSelect?.addEventListener('change', () => {
+    promptSettings.selectedChannel = el.pipelineChannelSelect.value;
+    if (el.promptChannelSelect) el.promptChannelSelect.value = promptSettings.selectedChannel;
+    updatePromptPreview();
+    savePromptSettings();
+  });
+  el.pipelineChatbotSelect?.addEventListener('change', () => {
+    promptSettings.selectedChatbot = el.pipelineChatbotSelect.value;
+    renderPromptChatbotUI();
+    savePromptSettings();
+  });
+  el.btnStartMasterPipeline?.addEventListener('click', () => {
+    if (el.autoDownloadImages) el.autoDownloadImages.checked = true;
+    if (el.autoRunChatbotPrompt) el.autoRunChatbotPrompt.checked = true;
+    updatePipelineSettingsRowVisibility();
+    saveArticleSettings();
+    startArticleCopy();
+  });
+
   const handleClearArticleCopy = async () => {
     await sendMessage(MESSAGE_TYPES.CLEAR_ARTICLE_COPY);
     newBatchStartIndex = 0;
     activeArticleRunId = null;
     autoImageTriggeredRunId = null;
+    autoPromptTriggeredRunId = null;
     articleSuccessDismissed = true;
     articleCopyWasRunning = false;
     articleRestoredWithData = false;
@@ -799,6 +849,7 @@ async function startArticleCopy() {
     articleCopyStarting = false;
     articleCopyWasRunning = true;
     activeArticleRunId = result.runId;
+    autoPromptTriggeredRunId = null;
     el.articleSuccessScreen.hidden = true;
     el.articleInputCard.hidden = true;
   }
@@ -812,6 +863,7 @@ async function refreshArticleCopyState() {
       initialArticleStateLoaded = true;
       if (state.status === 'completed') {
         autoImageTriggeredRunId = state.runId;
+        autoPromptTriggeredRunId = state.runId;
         // On reopen: suppress success screen but keep queue visible so user
         // can copy or clear existing saved posts without seeing the popup.
         articleSuccessDismissed = true;
@@ -851,6 +903,7 @@ function renderArticleCopyState(state) {
   el.articleProgressBar.style.width = `${queue.length ? Math.round((completed / queue.length) * 100) : 0}%`;
   el.articleCurrentUrl.textContent = active?.url || (queue.length ? 'Copying is finished. You can copy all extracted text now.' : 'The source page will scroll to the highlighted article area while it is being copied.');
   el.btnStartArticleCopy.disabled = isCopying;
+  if (el.btnStartMasterPipeline) el.btnStartMasterPipeline.disabled = isCopying;
   el.btnStopArticleCopy.disabled = !isCopying;
   el.btnCopyResults.disabled = !state.copiedText;
   el.btnCopyAllHeadingsMain.disabled = !state.copiedText;
@@ -867,43 +920,94 @@ function renderArticleCopyState(state) {
     el.articleSuccessChars.textContent = fmtChars(copied.reduce((sum, item) => sum + (item.chars || 0), 0));
     el.articleSuccessSummary.textContent = `${copied.length} article${copied.length === 1 ? '' : 's'} ready. Copy everything at once, or start another batch.`;
 
-
-    if (el.autoDownloadImages.checked && autoImageTriggeredRunId !== state.runId) {
-      autoImageTriggeredRunId = state.runId;
-      // Only download images for newly added articles, retaining their serial number from the article queue
-      const newlyCopied = [];
-      queue.forEach((item, index) => {
-        if (index >= newBatchStartIndex && item.status === 'copied' && item.title) {
-          newlyCopied.push({
-            title: item.title,
-            serialNumber: index + 1
-          });
-        }
-      });
-
-      if (newlyCopied.length > 0) {
-        // Switch tab
-        switchTool('images');
-        // Extract titles and fill input — only for the new batch
-        const titlesText = newlyCopied.map((item) => item.title).join('\n');
-        el.titles.value = titlesText;
-        updateTitleCount();
-        // Start download automatically with explicit serial numbers matching the article list
-        setTimeout(() => handleStart(newlyCopied), 300);
+    // Only process newly added articles for this run
+    const newlyCopied = [];
+    queue.forEach((item, index) => {
+      if (index >= newBatchStartIndex && item.status === 'copied' && item.title) {
+        newlyCopied.push({
+          title: item.title,
+          serialNumber: index + 1
+        });
       }
+    });
+
+    const newlyCopiedTitles = newlyCopied.map((item) => (item.title || '').trim()).filter(Boolean);
+
+    // ── Pipeline Step 1: Auto Run AI Prompt in Chatbot ──
+    const shouldAutoPrompt = el.autoRunChatbotPrompt && el.autoRunChatbotPrompt.checked;
+    if (shouldAutoPrompt && autoPromptTriggeredRunId !== state.runId && newlyCopiedTitles.length > 0) {
+      autoPromptTriggeredRunId = state.runId;
+
+      // Sync channel & target bot from pipeline dropdowns
+      if (el.pipelineChannelSelect && el.pipelineChannelSelect.value) {
+        promptSettings.selectedChannel = el.pipelineChannelSelect.value;
+        if (el.promptChannelSelect) el.promptChannelSelect.value = promptSettings.selectedChannel;
+      }
+      if (el.pipelineChatbotSelect && el.pipelineChatbotSelect.value) {
+        promptSettings.selectedChatbot = el.pipelineChatbotSelect.value;
+        renderPromptChatbotUI();
+      }
+      savePromptSettings();
+
+      // Populate AI Prompt headlines textarea
+      if (el.promptTitles) {
+        el.promptTitles.value = newlyCopiedTitles.join('\n');
+        updatePromptTitleCount();
+        updatePromptPreview();
+      }
+
+      // Resolve prompt template
+      const targetBot = el.pipelineChatbotSelect?.value || promptSettings.selectedChatbot || 'chatgpt';
+      const resolvedPrompt = getResolvedPrompt();
+      const autoSubmit = el.promptAutoSubmit ? el.promptAutoSubmit.checked !== false : true;
+
+      sendMessage(MESSAGE_TYPES.RUN_CHATBOT_PROMPT, {
+        target: targetBot,
+        prompt: resolvedPrompt,
+        autoSubmit
+      }).then((res) => {
+        if (res?.success) {
+          showPromptNotice(`✓ 1-Click Pipeline: Prompt dispatched to ${CHATBOT_TARGETS[targetBot]?.name || targetBot}!`, 'success');
+        } else {
+          showPromptNotice(`1-Click Pipeline Error: ${res?.error || 'Could not launch chatbot'}`, 'error');
+        }
+      }).catch((err) => {
+        showPromptNotice(`1-Click Pipeline Error: ${err.message}`, 'error');
+      });
+    }
+
+    // ── Pipeline Step 2: Auto Download Images ──
+    const shouldAutoDownload = el.autoDownloadImages && el.autoDownloadImages.checked;
+    if (shouldAutoDownload && autoImageTriggeredRunId !== state.runId && newlyCopied.length > 0) {
+      autoImageTriggeredRunId = state.runId;
+      // Switch tab to image downloader
+      switchTool('images');
+      // Extract titles and fill input — only for the new batch
+      const titlesText = newlyCopied.map((item) => item.title).join('\n');
+      el.titles.value = titlesText;
+      updateTitleCount();
+      // Start download automatically with explicit serial numbers matching the article list
+      setTimeout(() => handleStart(newlyCopied), 300);
+    } else if (!shouldAutoDownload && shouldAutoPrompt && newlyCopiedTitles.length > 0) {
+      // If image download is not requested, switch to AI Prompt tab to display resolved prompt
+      switchTool('prompts');
     }
   } else if (isCopying) {
     el.articleInputCard.hidden = true;
     el.articleSettingsSection.hidden = true;
     el.articleControlsWrapper.hidden = false;
+    el.articleControlsWrapper.classList.add('is-copying');
     el.articleControls.classList.add('is-copying');
+    if (el.btnStartMasterPipeline) el.btnStartMasterPipeline.style.display = 'none';
     el.articleProgressBar.closest('.article-progress-card').hidden = false;
     el.articleQueueList.closest('.article-queue-card').hidden = false;
   } else {
     el.articleInputCard.hidden = false;
     el.articleSettingsSection.hidden = false;
     el.articleControlsWrapper.hidden = false;
+    el.articleControlsWrapper.classList.remove('is-copying');
     el.articleControls.classList.remove('is-copying');
+    if (el.btnStartMasterPipeline) el.btnStartMasterPipeline.style.display = '';
     // Show progress/queue cards if there is run data.
     // articleRestoredWithData = restored on reload (show queue).
     // articleSuccessDismissed without restore = user dismissed mid-session (hide queue for fresh feel).
@@ -1238,6 +1342,7 @@ function renderPromptChatbotUI() {
   const botConfig = CHATBOT_TARGETS[bot] || CHATBOT_TARGETS.chatgpt;
   if (el.targetChatbotLabel) el.targetChatbotLabel.textContent = botConfig.name;
   if (el.btnRunChatbotPrompt) el.btnRunChatbotPrompt.dataset.bot = bot;
+  if (el.pipelineChatbotSelect) el.pipelineChatbotSelect.value = bot;
 }
 
 function renderPromptChannels() {
@@ -1245,23 +1350,31 @@ function renderPromptChannels() {
     promptSettings.channels = [];
   }
 
-  if (promptSettings.channels.length > 0) {
-    el.promptChannelSelect.innerHTML = promptSettings.channels.map((ch) => {
-      const isSelected = ch === promptSettings.selectedChannel;
-      return `<option value="${escHtml(ch)}" ${isSelected ? 'selected' : ''}>${escHtml(ch)}</option>`;
-    }).join('');
+  const optionsHtml = promptSettings.channels.length > 0
+    ? promptSettings.channels.map((ch) => {
+        const isSelected = ch === promptSettings.selectedChannel;
+        return `<option value="${escHtml(ch)}" ${isSelected ? 'selected' : ''}>${escHtml(ch)}</option>`;
+      }).join('')
+    : '<option value="">(No channel - Click ➕ to add)</option>';
 
-    if (!promptSettings.channels.includes(promptSettings.selectedChannel)) {
+  if (el.promptChannelSelect) {
+    el.promptChannelSelect.innerHTML = optionsHtml;
+    if (promptSettings.channels.length > 0 && !promptSettings.channels.includes(promptSettings.selectedChannel)) {
       promptSettings.selectedChannel = promptSettings.channels[0];
       el.promptChannelSelect.value = promptSettings.selectedChannel;
     }
-    el.btnDeleteChannel.disabled = false;
-    el.btnDeleteChannel.title = 'Delete this channel';
-  } else {
-    el.promptChannelSelect.innerHTML = '<option value="">(No channel - Click ➕ to add)</option>';
-    promptSettings.selectedChannel = '';
-    el.btnDeleteChannel.disabled = true;
-    el.btnDeleteChannel.title = 'No channel to delete';
+  }
+
+  if (el.pipelineChannelSelect) {
+    el.pipelineChannelSelect.innerHTML = optionsHtml;
+    if (promptSettings.selectedChannel) {
+      el.pipelineChannelSelect.value = promptSettings.selectedChannel;
+    }
+  }
+
+  if (el.btnDeleteChannel) {
+    el.btnDeleteChannel.disabled = promptSettings.channels.length === 0;
+    el.btnDeleteChannel.title = promptSettings.channels.length > 0 ? 'Delete this channel' : 'No channel to delete';
   }
 }
 
