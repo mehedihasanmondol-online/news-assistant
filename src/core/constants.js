@@ -141,16 +141,46 @@ Deliver:
 2. 60-second rapid-fire Voiceover Script.
 3. Shorts Description (under 200 words) with CTA.
 4. Top 6 Shorts Hashtags (e.g. #Shorts #{channel} #ViralNews #NewsShorts).`
+  },
+  {
+    id: 'preset-bangla-news',
+    name: 'বাংলা নিউজ প্যাকেজ (Bangla News Package)',
+    isDefault: false,
+    template: `You are a professional YouTube news content creator and SEO specialist for '{channel}'.
+
+নিচের সংবাদ শিরোনামগুলোর ওপর ভিত্তি করে একটি আকর্ষণীয় ও প্রফেশনাল YouTube News Package তৈরি করুন:
+
+{titles}
+
+ডেলিভারি ফরম্যাট:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+১. ৫টি হাই-সিটিআর ও আকর্ষণীয় বাংলা ভিডিও টাইটেল (Click-worthy Headlines)
+২. আকর্ষণীয় ভিডিও ডেসক্রিপশন (মূল সংবাদের পয়েন্ট ও টাইমস্ট্যাম্পসহ)
+৩. ৮-১০টি ট্রেন্ডিং হ্যাশট্যাগ (যেমন: #{channel} #BanglaNews #BreakingNews #TopNews)
+৪. ২৫-৩০টি ইউটিউব স্টুডিও ট্যাগ (কমা দিয়ে আলাদা করা, যা সরাসরি কপি-পেস্ট করা যাবে)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`
   }
 ];
 
+export const DEFAULT_CHANNEL_PROMPTS = {
+  'My News Channel': {
+    defaultPresetId: 'preset-youtube-package',
+    activePresetId: 'preset-youtube-package'
+  },
+  'BD News Express': {
+    defaultPresetId: 'preset-bangla-news',
+    activePresetId: 'preset-bangla-news'
+  }
+};
+
 export const DEFAULT_PROMPT_SETTINGS = {
-  version: 4,
+  version: 5,
   selectedChatbot: 'chatgpt',
   selectedChannel: 'My News Channel',
   channels: ['My News Channel', 'BD News Express'],
   autoSubmit: true,
-  activePresetId: 'preset-youtube-package'
+  activePresetId: 'preset-youtube-package',
+  channelPrompts: { ...DEFAULT_CHANNEL_PROMPTS }
 };
 
 export const MESSAGE_TYPES = {

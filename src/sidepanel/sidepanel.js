@@ -6,7 +6,8 @@ import {
   CHATBOT_TARGETS,
   DEFAULT_CHANNELS,
   DEFAULT_PROMPT_PRESETS,
-  DEFAULT_PROMPT_SETTINGS
+  DEFAULT_PROMPT_SETTINGS,
+  DEFAULT_CHANNEL_PROMPTS
 } from '../core/constants.js';
 
 // ===========================
@@ -465,9 +466,11 @@ function setupListeners() {
     }
   });
   el.pipelineChannelSelect?.addEventListener('change', () => {
-    promptSettings.selectedChannel = el.pipelineChannelSelect.value;
-    if (el.promptChannelSelect) el.promptChannelSelect.value = promptSettings.selectedChannel;
-    updatePromptPreview();
+    saveCurrentChannelState();
+    const newCh = el.pipelineChannelSelect.value;
+    promptSettings.selectedChannel = newCh;
+    if (el.promptChannelSelect) el.promptChannelSelect.value = newCh;
+    loadChannelPromptState(newCh);
     savePromptSettings();
   });
   el.pipelineChatbotSelect?.addEventListener('change', () => {
@@ -968,8 +971,10 @@ function triggerAutoChatbotPrompt(titlesList = null) {
 
   // Sync channel & target bot from pipeline dropdowns
   if (el.pipelineChannelSelect && el.pipelineChannelSelect.value) {
-    promptSettings.selectedChannel = el.pipelineChannelSelect.value;
-    if (el.promptChannelSelect) el.promptChannelSelect.value = promptSettings.selectedChannel;
+    const ch = el.pipelineChannelSelect.value;
+    promptSettings.selectedChannel = ch;
+    if (el.promptChannelSelect) el.promptChannelSelect.value = ch;
+    loadChannelPromptState(ch);
   }
   if (el.pipelineChatbotSelect && el.pipelineChatbotSelect.value) {
     promptSettings.selectedChatbot = el.pipelineChatbotSelect.value;
@@ -1522,14 +1527,57 @@ function sendMessage(action, payload = {}) {
 // AI Prompt Hub Feature (YouTube News Package)
 // ==========================================================================
 let promptSettings = {
-  version: 4,
+  version: 5,
   selectedChatbot: 'chatgpt',
   selectedChannel: 'My News Channel',
   channels: ['My News Channel', 'BD News Express'],
   autoSubmit: true,
   activePresetId: 'preset-youtube-package',
+  channelPrompts: JSON.parse(JSON.stringify(DEFAULT_CHANNEL_PROMPTS)),
   presets: JSON.parse(JSON.stringify(DEFAULT_PROMPT_PRESETS))
 };
+
+function saveCurrentChannelState() {
+  const ch = promptSettings.selectedChannel;
+  if (!ch) return;
+  if (!promptSettings.channelPrompts) promptSettings.channelPrompts = {};
+  if (!promptSettings.channelPrompts[ch]) promptSettings.channelPrompts[ch] = {};
+
+  promptSettings.channelPrompts[ch].activePresetId = promptSettings.activePresetId;
+  if (el.promptTemplate) {
+    promptSettings.channelPrompts[ch].template = el.promptTemplate.value;
+  }
+}
+
+function loadChannelPromptState(channelName) {
+  if (!channelName) return;
+  if (!promptSettings.channelPrompts) {
+    promptSettings.channelPrompts = JSON.parse(JSON.stringify(DEFAULT_CHANNEL_PROMPTS));
+  }
+  if (!promptSettings.channelPrompts[channelName]) {
+    promptSettings.channelPrompts[channelName] = {
+      defaultPresetId: channelName === 'BD News Express' ? 'preset-bangla-news' : 'preset-youtube-package',
+      activePresetId: channelName === 'BD News Express' ? 'preset-bangla-news' : 'preset-youtube-package'
+    };
+  }
+
+  const chData = promptSettings.channelPrompts[channelName];
+  // Always select the channel's designated default preset when switching/loading channel
+  const defaultPresetId = chData.defaultPresetId || (channelName === 'BD News Express' ? 'preset-bangla-news' : 'preset-youtube-package');
+  const preset = promptSettings.presets.find(p => p.id === defaultPresetId) || promptSettings.presets[0];
+
+  promptSettings.activePresetId = preset.id;
+  chData.activePresetId = preset.id;
+  chData.defaultPresetId = defaultPresetId;
+
+  if (el.promptTemplate) {
+    el.promptTemplate.value = preset.template || '';
+  }
+  chData.template = preset.template || '';
+
+  renderPromptPresets();
+  updatePromptPreview();
+}
 
 async function loadPromptSettings() {
   try {
@@ -1556,22 +1604,46 @@ async function loadPromptSettings() {
       promptSettings.presets = Array.isArray(s.presets) && s.presets.length > 0
         ? s.presets
         : JSON.parse(JSON.stringify(DEFAULT_PROMPT_PRESETS));
-      promptSettings.activePresetId = s.activePresetId || 'preset-youtube-package';
+
+      // Ensure preset-bangla-news exists in presets
+      if (!promptSettings.presets.some(p => p.id === 'preset-bangla-news')) {
+        const banglaPreset = DEFAULT_PROMPT_PRESETS.find(p => p.id === 'preset-bangla-news');
+        if (banglaPreset) promptSettings.presets.push(banglaPreset);
+      }
+
+      promptSettings.channelPrompts = (s.channelPrompts && typeof s.channelPrompts === 'object')
+        ? s.channelPrompts
+        : JSON.parse(JSON.stringify(DEFAULT_CHANNEL_PROMPTS));
+
+      // Migration: Ensure BD News Express defaults to preset-bangla-news if not explicitly customized
+      if (promptSettings.channelPrompts['BD News Express']) {
+        if (!promptSettings.channelPrompts['BD News Express'].defaultPresetId ||
+            ((s.version || 1) < 5 && promptSettings.channelPrompts['BD News Express'].defaultPresetId === 'preset-youtube-package')) {
+          promptSettings.channelPrompts['BD News Express'].defaultPresetId = 'preset-bangla-news';
+          promptSettings.channelPrompts['BD News Express'].activePresetId = 'preset-bangla-news';
+        }
+      }
+
+      // Ensure all channels have entries in channelPrompts
+      promptSettings.channels.forEach((ch) => {
+        if (!promptSettings.channelPrompts[ch]) {
+          promptSettings.channelPrompts[ch] = {
+            defaultPresetId: ch === 'BD News Express' ? 'preset-bangla-news' : 'preset-youtube-package',
+            activePresetId: ch === 'BD News Express' ? 'preset-bangla-news' : 'preset-youtube-package'
+          };
+        }
+      });
+    } else {
+      promptSettings.channelPrompts = JSON.parse(JSON.stringify(DEFAULT_CHANNEL_PROMPTS));
     }
   } catch (e) {
     console.warn('Failed to load prompt settings:', e);
   }
 
-  // Ensure activePresetId exists in presets
-  if (!promptSettings.presets.some(p => p.id === promptSettings.activePresetId)) {
-    promptSettings.activePresetId = promptSettings.presets[0]?.id || 'preset-youtube-package';
-  }
-
   renderPromptChatbotUI();
   renderPromptChannels();
-  renderPromptPresets();
+  loadChannelPromptState(promptSettings.selectedChannel);
   updatePromptTitleCount();
-  updatePromptPreview();
 }
 
 async function savePromptSettings() {
@@ -1631,18 +1703,33 @@ function renderPromptChannels() {
 }
 
 function renderPromptPresets() {
+  const currentCh = promptSettings.selectedChannel || '';
+  const chData = promptSettings.channelPrompts?.[currentCh] || {};
+  const channelDefaultId = chData.defaultPresetId || (currentCh === 'BD News Express' ? 'preset-bangla-news' : 'preset-youtube-package');
+  const isThisPresetDefault = (promptSettings.activePresetId === channelDefaultId);
+
   el.promptPresetSelect.innerHTML = promptSettings.presets.map((p) => {
     const isSelected = p.id === promptSettings.activePresetId;
-    const defaultTag = p.isDefault ? ' ★' : '';
+    const isDefault = (p.id === channelDefaultId);
+    const defaultTag = isDefault ? ' ★' : '';
     return `<option value="${p.id}" ${isSelected ? 'selected' : ''}>${escHtml(p.name)}${defaultTag}</option>`;
   }).join('');
 
   const activePreset = getActivePreset();
   if (activePreset) {
-    el.promptTemplate.value = activePreset.template;
-    el.promptPresetDefaultBadge.style.display = activePreset.isDefault ? 'inline-block' : 'none';
-    el.btnSetDefaultPreset.disabled = !!activePreset.isDefault;
-    el.btnDeletePreset.disabled = promptSettings.presets.length <= 1;
+    if (el.promptPresetDefaultBadge) {
+      el.promptPresetDefaultBadge.style.display = isThisPresetDefault ? 'inline-block' : 'none';
+      el.promptPresetDefaultBadge.textContent = `★ Default (${currentCh || 'Channel'})`;
+    }
+    if (el.btnSetDefaultPreset) {
+      el.btnSetDefaultPreset.disabled = isThisPresetDefault;
+      el.btnSetDefaultPreset.title = isThisPresetDefault
+        ? `This preset is already the default for "${currentCh}"`
+        : `Set this preset as default for "${currentCh}"`;
+    }
+    if (el.btnDeletePreset) {
+      el.btnDeletePreset.disabled = promptSettings.presets.length <= 1;
+    }
   }
 }
 
@@ -1955,8 +2042,11 @@ function setupPromptListeners() {
 
   // Channel Selection
   el.promptChannelSelect.addEventListener('change', () => {
-    promptSettings.selectedChannel = el.promptChannelSelect.value;
-    updatePromptPreview();
+    saveCurrentChannelState();
+    const newCh = el.promptChannelSelect.value;
+    promptSettings.selectedChannel = newCh;
+    if (el.pipelineChannelSelect) el.pipelineChannelSelect.value = newCh;
+    loadChannelPromptState(newCh);
     savePromptSettings();
   });
 
@@ -1978,14 +2068,23 @@ function setupPromptListeners() {
   el.btnSaveNewChannel.addEventListener('click', async () => {
     const name = el.newChannelName.value.trim();
     if (!name) return;
+    saveCurrentChannelState();
     if (!promptSettings.channels.includes(name)) {
       promptSettings.channels.push(name);
+    }
+    if (!promptSettings.channelPrompts) promptSettings.channelPrompts = {};
+    if (!promptSettings.channelPrompts[name]) {
+      promptSettings.channelPrompts[name] = {
+        defaultPresetId: 'preset-youtube-package',
+        activePresetId: 'preset-youtube-package',
+        template: el.promptTemplate ? el.promptTemplate.value : (getActivePreset()?.template || '')
+      };
     }
     promptSettings.selectedChannel = name;
     el.addChannelBox.style.display = 'none';
     el.newChannelName.value = '';
     renderPromptChannels();
-    updatePromptPreview();
+    loadChannelPromptState(name);
     await savePromptSettings();
   });
 
@@ -1993,9 +2092,19 @@ function setupPromptListeners() {
     if (!promptSettings.channels || promptSettings.channels.length === 0) return;
     const current = promptSettings.selectedChannel;
     promptSettings.channels = promptSettings.channels.filter(c => c !== current);
-    promptSettings.selectedChannel = promptSettings.channels.length > 0 ? promptSettings.channels[0] : '';
+    if (promptSettings.channelPrompts) {
+      delete promptSettings.channelPrompts[current];
+    }
+    const nextChannel = promptSettings.channels.length > 0 ? promptSettings.channels[0] : '';
+    promptSettings.selectedChannel = nextChannel;
     renderPromptChannels();
-    updatePromptPreview();
+    if (nextChannel) {
+      loadChannelPromptState(nextChannel);
+    } else {
+      if (el.promptTemplate) el.promptTemplate.value = '';
+      renderPromptPresets();
+      updatePromptPreview();
+    }
     await savePromptSettings();
     showPromptNotice(`Deleted channel "${current}".`, 'info');
     if (promptSettings.channels.length === 0) {
@@ -2066,6 +2175,11 @@ function setupPromptListeners() {
   // Preset Selection & Management
   el.promptPresetSelect.addEventListener('change', () => {
     promptSettings.activePresetId = el.promptPresetSelect.value;
+    const activePreset = getActivePreset();
+    if (activePreset && el.promptTemplate) {
+      el.promptTemplate.value = activePreset.template;
+    }
+    saveCurrentChannelState();
     renderPromptPresets();
     updatePromptPreview();
     savePromptSettings();
@@ -2098,6 +2212,7 @@ function setupPromptListeners() {
 
     promptSettings.presets.push(newPreset);
     promptSettings.activePresetId = newPreset.id;
+    saveCurrentChannelState();
     el.newPresetBox.style.display = 'none';
     el.newPresetName.value = '';
     renderPromptPresets();
@@ -2109,34 +2224,45 @@ function setupPromptListeners() {
     const activePreset = getActivePreset();
     if (activePreset) {
       activePreset.template = el.promptTemplate.value;
-      await savePromptSettings();
-      el.presetSaveNotice.textContent = 'Preset saved ✓';
-      setTimeout(() => { el.presetSaveNotice.textContent = ''; }, 2000);
-      updatePromptPreview();
     }
+    saveCurrentChannelState();
+    await savePromptSettings();
+    el.presetSaveNotice.textContent = `Saved for "${promptSettings.selectedChannel}" ✓`;
+    setTimeout(() => { el.presetSaveNotice.textContent = ''; }, 2000);
+    updatePromptPreview();
   });
 
   el.btnSetDefaultPreset.addEventListener('click', async () => {
+    const ch = promptSettings.selectedChannel;
+    if (!ch) return;
+    if (!promptSettings.channelPrompts) promptSettings.channelPrompts = {};
+    if (!promptSettings.channelPrompts[ch]) promptSettings.channelPrompts[ch] = {};
+
+    promptSettings.channelPrompts[ch].defaultPresetId = promptSettings.activePresetId;
     const activePreset = getActivePreset();
-    if (activePreset) {
-      promptSettings.presets.forEach(p => { p.isDefault = (p.id === activePreset.id); });
-      renderPromptPresets();
-      await savePromptSettings();
-      el.presetSaveNotice.textContent = 'Set as default ✓';
-      setTimeout(() => { el.presetSaveNotice.textContent = ''; }, 2000);
+    if (activePreset && el.promptTemplate) {
+      activePreset.template = el.promptTemplate.value;
     }
+    if (el.promptTemplate) {
+      promptSettings.channelPrompts[ch].template = el.promptTemplate.value;
+    }
+
+    renderPromptPresets();
+    await savePromptSettings();
+    el.presetSaveNotice.textContent = `Default set for "${ch}" ✓`;
+    setTimeout(() => { el.presetSaveNotice.textContent = ''; }, 2200);
   });
 
   el.btnResetDefaultPresets?.addEventListener('click', async () => {
     promptSettings.presets = JSON.parse(JSON.stringify(DEFAULT_PROMPT_PRESETS));
-    promptSettings.activePresetId = 'preset-youtube-package';
     promptSettings.channels = [...DEFAULT_CHANNELS];
+    promptSettings.channelPrompts = JSON.parse(JSON.stringify(DEFAULT_CHANNEL_PROMPTS));
     promptSettings.selectedChannel = promptSettings.channels[0];
+    promptSettings.activePresetId = 'preset-youtube-package';
     renderPromptChannels();
-    renderPromptPresets();
-    updatePromptPreview();
+    loadChannelPromptState(promptSettings.selectedChannel);
     await savePromptSettings();
-    el.presetSaveNotice.textContent = 'Reset to YouTube defaults ✓';
+    el.presetSaveNotice.textContent = 'Reset to YouTube channel defaults ✓';
     setTimeout(() => { el.presetSaveNotice.textContent = ''; }, 2200);
   });
 
@@ -2144,7 +2270,12 @@ function setupPromptListeners() {
     if (promptSettings.presets.length <= 1) return;
     const activeId = promptSettings.activePresetId;
     promptSettings.presets = promptSettings.presets.filter(p => p.id !== activeId);
-    promptSettings.activePresetId = promptSettings.presets.find(p => p.isDefault)?.id || promptSettings.presets[0].id;
+    const ch = promptSettings.selectedChannel;
+    const chData = promptSettings.channelPrompts?.[ch] || {};
+    promptSettings.activePresetId = chData.defaultPresetId && promptSettings.presets.some(p => p.id === chData.defaultPresetId)
+      ? chData.defaultPresetId
+      : promptSettings.presets[0].id;
+    saveCurrentChannelState();
     renderPromptPresets();
     updatePromptPreview();
     await savePromptSettings();
@@ -2155,7 +2286,10 @@ function setupPromptListeners() {
   el.btnChipTitles.addEventListener('click', () => insertPlaceholderAtCursor('{titles}'));
 
   // Template changes
-  el.promptTemplate.addEventListener('input', updatePromptPreview);
+  el.promptTemplate.addEventListener('input', () => {
+    saveCurrentChannelState();
+    updatePromptPreview();
+  });
 
   // Preview Modal events
   el.btnOpenPromptPreviewModal?.addEventListener('click', openPromptPreviewModal);
