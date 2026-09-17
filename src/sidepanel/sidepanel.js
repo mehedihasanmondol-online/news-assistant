@@ -179,6 +179,8 @@ let articleCopyWasRunning = false;
 let activeArticleRunId = null;
 let autoImageTriggeredRunId = null;
 let autoPromptTriggeredRunId = null;
+let pendingAutoPromptAfterImages = false;
+let pendingAutoPromptTitles = [];
 let articleRestoredWithData = false; // True when browser reloads with existing saved posts — skips success screen but keeps queue visible
 let newBatchStartIndex = 0; // Queue index where the latest batch of new links starts
 const copiedPostIndexes = new Set();
@@ -413,9 +415,24 @@ function setupListeners() {
     updatePipelineCardsState();
     saveArticleSettings();
   });
-  el.autoRunChatbotPrompt?.addEventListener('change', () => {
+  el.autoRunChatbotPrompt?.addEventListener('change', async () => {
     updatePipelineSettingsRowVisibility();
     saveArticleSettings();
+
+    if (el.autoRunChatbotPrompt.checked) {
+      try {
+        const state = await sendMessage(MESSAGE_TYPES.GET_ARTICLE_COPY_STATE);
+        const queue = state?.queue || [];
+        const titles = queue.filter(item => item.status === 'copied' && item.title).map(item => item.title.trim()).filter(Boolean);
+        if (titles.length > 0 && el.promptTitles && !el.promptTitles.value.trim()) {
+          el.promptTitles.value = titles.join('\n');
+          updatePromptTitleCount();
+          updatePromptPreview();
+        }
+      } catch (e) {
+        console.warn('Sync prompt titles error:', e);
+      }
+    }
   });
   el.pipelineChannelSelect?.addEventListener('change', () => {
     promptSettings.selectedChannel = el.pipelineChannelSelect.value;
@@ -637,6 +654,18 @@ function renderState(state) {
   if (isCompleted && !wasCompleted && !suppressSuccess) {
     wasCompleted = true;
     showSuccessScreen(state);
+
+    // Sequential Pipeline: When image download finishes, proceed to AI Prompt if requested
+    if (pendingAutoPromptAfterImages) {
+      pendingAutoPromptAfterImages = false;
+      const titlesToPrompt = pendingAutoPromptTitles.length > 0
+        ? pendingAutoPromptTitles
+        : queue.map(q => q.title).filter(Boolean);
+      pendingAutoPromptTitles = [];
+      setTimeout(() => {
+        triggerAutoChatbotPrompt(titlesToPrompt);
+      }, 700);
+    }
     return; // No need to update normal UI — success screen is showing
   }
   // If success screen is actively suppressed (after Start Again), keep it hidden
@@ -762,6 +791,8 @@ function resetToStart() {
   // Suppress success screen until a brand new run is started
   wasCompleted = false;
   suppressSuccess = true;
+  pendingAutoPromptAfterImages = false;
+  pendingAutoPromptTitles = [];
 
   // Hide success screen
   el.successScreen.style.display = 'none';
@@ -857,6 +888,9 @@ async function startArticleCopy() {
     articleCopyWasRunning = true;
     activeArticleRunId = result.runId;
     autoPromptTriggeredRunId = null;
+    autoImageTriggeredRunId = null;
+    pendingAutoPromptAfterImages = false;
+    pendingAutoPromptTitles = [];
     el.articleSuccessScreen.hidden = true;
     el.articleInputCard.hidden = true;
   }
@@ -880,6 +914,55 @@ async function refreshArticleCopyState() {
     }
     renderArticleCopyState(state);
   }
+}
+
+function triggerAutoChatbotPrompt(titlesList = null) {
+  let titles = titlesList;
+  if (!titles || titles.length === 0) {
+    if (el.promptTitles && el.promptTitles.value.trim()) {
+      titles = el.promptTitles.value.split('\n').map(t => t.trim()).filter(Boolean);
+    }
+  }
+
+  // Populate AI Prompt headlines textarea
+  if (titles && titles.length > 0 && el.promptTitles) {
+    el.promptTitles.value = titles.join('\n');
+    updatePromptTitleCount();
+    updatePromptPreview();
+  }
+
+  // Switch to AI Prompt tab so user immediately sees their prompt and titles!
+  switchTool('prompts');
+
+  // Sync channel & target bot from pipeline dropdowns
+  if (el.pipelineChannelSelect && el.pipelineChannelSelect.value) {
+    promptSettings.selectedChannel = el.pipelineChannelSelect.value;
+    if (el.promptChannelSelect) el.promptChannelSelect.value = promptSettings.selectedChannel;
+  }
+  if (el.pipelineChatbotSelect && el.pipelineChatbotSelect.value) {
+    promptSettings.selectedChatbot = el.pipelineChatbotSelect.value;
+    renderPromptChatbotUI();
+  }
+  savePromptSettings();
+
+  // Resolve prompt template
+  const targetBot = el.pipelineChatbotSelect?.value || promptSettings.selectedChatbot || 'chatgpt';
+  const resolvedPrompt = getResolvedPrompt();
+  const autoSubmit = el.promptAutoSubmit ? el.promptAutoSubmit.checked !== false : true;
+
+  sendMessage(MESSAGE_TYPES.RUN_CHATBOT_PROMPT, {
+    target: targetBot,
+    prompt: resolvedPrompt,
+    autoSubmit
+  }).then((res) => {
+    if (res?.success) {
+      showPromptNotice(`✓ Prompt dispatched to ${CHATBOT_TARGETS[targetBot]?.name || targetBot}!`, 'success');
+    } else {
+      showPromptNotice(`Pipeline Error: ${res?.error || 'Could not launch chatbot'}`, 'error');
+    }
+  }).catch((err) => {
+    showPromptNotice(`Pipeline Error: ${err.message}`, 'error');
+  });
 }
 
 function renderArticleCopyState(state) {
@@ -927,7 +1010,7 @@ function renderArticleCopyState(state) {
     el.articleSuccessSummary.textContent = `${copied.length} article${copied.length === 1 ? '' : 's'} ready. Copy everything at once, or start another batch.`;
 
     // Only process newly added articles for this run
-    const newlyCopied = [];
+    let newlyCopied = [];
     queue.forEach((item, index) => {
       if (index >= newBatchStartIndex && item.status === 'copied' && item.title) {
         newlyCopied.push({
@@ -937,66 +1020,47 @@ function renderArticleCopyState(state) {
       }
     });
 
-    const newlyCopiedTitles = newlyCopied.map((item) => (item.title || '').trim()).filter(Boolean);
-
-    // ── Pipeline Step 1: Auto Run AI Prompt in Chatbot ──
-    const shouldAutoPrompt = el.autoRunChatbotPrompt && el.autoRunChatbotPrompt.checked;
-    if (shouldAutoPrompt && autoPromptTriggeredRunId !== state.runId && newlyCopiedTitles.length > 0) {
-      autoPromptTriggeredRunId = state.runId;
-
-      // Sync channel & target bot from pipeline dropdowns
-      if (el.pipelineChannelSelect && el.pipelineChannelSelect.value) {
-        promptSettings.selectedChannel = el.pipelineChannelSelect.value;
-        if (el.promptChannelSelect) el.promptChannelSelect.value = promptSettings.selectedChannel;
-      }
-      if (el.pipelineChatbotSelect && el.pipelineChatbotSelect.value) {
-        promptSettings.selectedChatbot = el.pipelineChatbotSelect.value;
-        renderPromptChatbotUI();
-      }
-      savePromptSettings();
-
-      // Populate AI Prompt headlines textarea
-      if (el.promptTitles) {
-        el.promptTitles.value = newlyCopiedTitles.join('\n');
-        updatePromptTitleCount();
-        updatePromptPreview();
-      }
-
-      // Resolve prompt template
-      const targetBot = el.pipelineChatbotSelect?.value || promptSettings.selectedChatbot || 'chatgpt';
-      const resolvedPrompt = getResolvedPrompt();
-      const autoSubmit = el.promptAutoSubmit ? el.promptAutoSubmit.checked !== false : true;
-
-      sendMessage(MESSAGE_TYPES.RUN_CHATBOT_PROMPT, {
-        target: targetBot,
-        prompt: resolvedPrompt,
-        autoSubmit
-      }).then((res) => {
-        if (res?.success) {
-          showPromptNotice(`✓ 1-Click Pipeline: Prompt dispatched to ${CHATBOT_TARGETS[targetBot]?.name || targetBot}!`, 'success');
-        } else {
-          showPromptNotice(`1-Click Pipeline Error: ${res?.error || 'Could not launch chatbot'}`, 'error');
-        }
-      }).catch((err) => {
-        showPromptNotice(`1-Click Pipeline Error: ${err.message}`, 'error');
-      });
+    // Fallback: If no new items found by newBatchStartIndex, use all copied items from this queue
+    if (newlyCopied.length === 0) {
+      newlyCopied = queue
+        .filter((item) => item.status === 'copied' && item.title)
+        .map((item, index) => ({
+          title: item.title,
+          serialNumber: index + 1
+        }));
     }
 
-    // ── Pipeline Step 2: Auto Download Images ──
+    const newlyCopiedTitles = newlyCopied.map((item) => (item.title || '').trim()).filter(Boolean);
+
+    // ── Sequential Automation Pipeline: Copy -> Image Download -> AI Prompt ──
     const shouldAutoDownload = el.autoDownloadImages && el.autoDownloadImages.checked;
+    const shouldAutoPrompt = el.autoRunChatbotPrompt && el.autoRunChatbotPrompt.checked;
+
+    // Step 1: If Auto Download Images is enabled -> Download images first
     if (shouldAutoDownload && autoImageTriggeredRunId !== state.runId && newlyCopied.length > 0) {
       autoImageTriggeredRunId = state.runId;
-      // Switch tab to image downloader
+
+      // Queue AI prompt to trigger sequentially after image download finishes
+      if (shouldAutoPrompt) {
+        pendingAutoPromptAfterImages = true;
+        pendingAutoPromptTitles = newlyCopiedTitles;
+      } else {
+        pendingAutoPromptAfterImages = false;
+        pendingAutoPromptTitles = [];
+      }
+
+      // Switch to image downloader
       switchTool('images');
-      // Extract titles and fill input — only for the new batch
       const titlesText = newlyCopied.map((item) => item.title).join('\n');
       el.titles.value = titlesText;
       updateTitleCount();
       // Start download automatically with explicit serial numbers matching the article list
       setTimeout(() => handleStart(newlyCopied), 300);
-    } else if (!shouldAutoDownload && shouldAutoPrompt && newlyCopiedTitles.length > 0) {
-      // If image download is not requested, switch to AI Prompt tab to display resolved prompt
-      switchTool('prompts');
+    } else if (!shouldAutoDownload && shouldAutoPrompt && autoPromptTriggeredRunId !== state.runId && newlyCopiedTitles.length > 0) {
+      // Step 2: If Auto Download Images is disabled, but AI Prompt is enabled -> Run AI Prompt directly
+      autoPromptTriggeredRunId = state.runId;
+      pendingAutoPromptAfterImages = false;
+      triggerAutoChatbotPrompt(newlyCopiedTitles);
     }
   } else if (isCopying) {
     el.articleInputCard.hidden = true;
